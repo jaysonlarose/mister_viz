@@ -1,0 +1,27 @@
+name: 8Bitdo M30
+vid: 0x2dc8
+pid: 0x0651
+svg: m30.svg
+ptt: BTN_TR2
+scale: 0.4
+buttons:
+  BTN_A: a
+  BTN_B: b
+  BTN_TR: c
+  BTN_X: x
+  BTN_Y: y
+  BTN_TL: z
+  BTN_SELECT: select
+  BTN_START: start
+  BTN_TL2: l
+  BTN_TR2: r
+  BTN_C: heart
+axes:
+  ABS_X:
+    binary:
+      left: [0, 0]
+      right: [255, 255] 
+  ABS_Y:
+    binary:
+      up: [0, 0]
+      down: [255, 255]
