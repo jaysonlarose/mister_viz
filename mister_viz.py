@@ -764,7 +764,7 @@ class MisterViz:# {{{
 				self.connect_button.set_label("Disconnect")
 			self.connection_status = "connected"
 			self.sock = sock
-			GLib.io_add_watch(self.sock, GLib.IO_IN, self.socket_handler)
+			GLib.io_add_watch(self.sock, GLib.IO_IN | GLib.IO_HUP, self.socket_handler)
 			return False
 		except OSError:
 			print("Connection failed!")
@@ -773,9 +773,77 @@ class MisterViz:# {{{
 			return False
 	# }}}
 	def socket_handler(self, fd, flags):# {{{
-		data = self.sock.recv(MISTER_STRUCT_SIZE)
-		#print(f"got {len(data)} bytes")
-		if len(data) == 0:
+		if flags & GLib.IO_IN:
+			data = self.sock.recv(MISTER_STRUCT_SIZE)
+			#print(f"got {len(data)} bytes")
+			if len(data) == 0:
+				print("Disconnected!")
+				self.connection_status = "connecting"
+				if self.window is not None:
+					self.connect_button.set_label("Cancel")
+				self.sock.close()
+				self.sock = None
+				GLib.timeout_add(100, self.connect_handler)
+				return False
+			vals = struct.unpack(MISTER_STRUCT, data)
+			inputno = vals[0]
+			vid = vals[1]
+			pid = vals[2]
+			key = f"{vid:04x}:{pid:04x}"
+			event_vals = [0, 0] + list(vals[3:])
+			event = evdev_categorize(evdev_InputEvent(*event_vals))
+			superevent = event
+			if hasattr(event, 'event'):
+				event = event.event
+			print_event = True
+			if ecodes.EV[event.type] == 'EV_SYN':
+				print_event = False
+			if ecodes.EV[event.type] == 'EV_KEY':
+				if event.value == 2:
+					print_event = False
+			if print_event:
+				print(superevent)
+				print(f"  input {inputno} {vid:04x}:{pid:04x}: {event}")
+			if key in self.windows:
+				win = self.windows[key]
+				ev_type = ecodes.EV[event.type]
+				if ev_type == 'EV_SYN':
+					win.apply_event_queue()
+				else:
+					win.event_queue.append(event)
+			else:
+				if vid in self.res_lookup:
+					if pid in self.res_lookup[vid]:
+						print(f"Found resource for vid/pid {vid:04x}:{pid:04x}, instantiating window")
+						win = MisterVizWindow(self.res_lookup[vid][pid], self)
+						self.windows[key] = win
+						win.connect("destroy", self.window_destroy_handler)
+						if 'ptt' in win.res.config and self.ptt is not None:
+							ptt_elem = win.res.config['ptt']
+							if ptt_elem in win.res.buttons:
+								win.res.buttons[ptt_elem].ptt = self.ptt
+
+			update_seen_window = False
+			if key not in self.seen_events:
+				self.seen_events[key] = {}
+				if not self.seen_but.get_sensitive():
+					self.seen_but.set_sensitive(True)
+				update_seen_window = True
+			subkey = f"{event.type}:{event.code}"
+			if subkey not in self.seen_events[key]:
+				self.seen_events[key][subkey] = [event.value, event.value]
+				update_seen_window = True
+			else:
+				if event.value < self.seen_events[key][subkey][0]:
+					self.seen_events[key][subkey][0] = event.value
+					update_seen_window = True
+				if event.value > self.seen_events[key][subkey][1]:
+					self.seen_events[key][subkey][1] = event.value
+					update_seen_window = True
+
+			if update_seen_window and self.seen_window is not None:
+				GLib.idle_add(self.seen_window.update)
+		elif flags & GLib.IO_HUP:
 			print("Disconnected!")
 			self.connection_status = "connecting"
 			if self.window is not None:
@@ -784,64 +852,6 @@ class MisterViz:# {{{
 			self.sock = None
 			GLib.timeout_add(100, self.connect_handler)
 			return False
-		vals = struct.unpack(MISTER_STRUCT, data)
-		inputno = vals[0]
-		vid = vals[1]
-		pid = vals[2]
-		key = f"{vid:04x}:{pid:04x}"
-		event_vals = [0, 0] + list(vals[3:])
-		event = evdev_categorize(evdev_InputEvent(*event_vals))
-		superevent = event
-		if hasattr(event, 'event'):
-			event = event.event
-		print_event = True
-		if ecodes.EV[event.type] == 'EV_SYN':
-			print_event = False
-		if ecodes.EV[event.type] == 'EV_KEY':
-			if event.value == 2:
-				print_event = False
-		if print_event:
-			print(superevent)
-			print(f"  input {inputno} {vid:04x}:{pid:04x}: {event}")
-		if key in self.windows:
-			win = self.windows[key]
-			ev_type = ecodes.EV[event.type]
-			if ev_type == 'EV_SYN':
-				win.apply_event_queue()
-			else:
-				win.event_queue.append(event)
-		else:
-			if vid in self.res_lookup:
-				if pid in self.res_lookup[vid]:
-					print(f"Found resource for vid/pid {vid:04x}:{pid:04x}, instantiating window")
-					win = MisterVizWindow(self.res_lookup[vid][pid], self)
-					self.windows[key] = win
-					win.connect("destroy", self.window_destroy_handler)
-					if 'ptt' in win.res.config and self.ptt is not None:
-						ptt_elem = win.res.config['ptt']
-						if ptt_elem in win.res.buttons:
-							win.res.buttons[ptt_elem].ptt = self.ptt
-
-		update_seen_window = False
-		if key not in self.seen_events:
-			self.seen_events[key] = {}
-			if not self.seen_but.get_sensitive():
-				self.seen_but.set_sensitive(True)
-			update_seen_window = True
-		subkey = f"{event.type}:{event.code}"
-		if subkey not in self.seen_events[key]:
-			self.seen_events[key][subkey] = [event.value, event.value]
-			update_seen_window = True
-		else:
-			if event.value < self.seen_events[key][subkey][0]:
-				self.seen_events[key][subkey][0] = event.value
-				update_seen_window = True
-			if event.value > self.seen_events[key][subkey][1]:
-				self.seen_events[key][subkey][1] = event.value
-				update_seen_window = True
-
-		if update_seen_window and self.seen_window is not None:
-			GLib.idle_add(self.seen_window.update)
 
 		return True
 	# }}}
