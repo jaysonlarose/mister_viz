@@ -1,4 +1,4 @@
-MISTER_VIZ_BASEDIR="$HOME"/bin/projects/mister_viz
+MISTER_VIZ_BASEDIR="$HOME"/Git/mister_viz
 
 MISTER_VIZ_BUILDHOST=vm10
 MISTER_VIZ_BUILDUSER=jayson
