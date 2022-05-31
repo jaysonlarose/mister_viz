@@ -1107,7 +1107,7 @@ class MisterVizWindow(Gtk.Window):# {{{
 						offsets['x'] = magnitude * math.cos(angle)
 						offsets['y'] = magnitude * math.sin(angle)
 
-				Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[pixkey][0], offsets['x'] + self.pixbufs[pixkey][1], offsets['y'] + self.pixbufs[pixkey][2])
+				Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[pixkey][0], (offsets['x'] * self.scalefactor) + self.pixbufs[pixkey][1], (offsets['y'] * self.scalefactor) + self.pixbufs[pixkey][2])
 				cr.paint()
 	# }}}
 # }}}
