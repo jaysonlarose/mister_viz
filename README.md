@@ -22,7 +22,7 @@ For windows, an installation program is provided. If you *really* want to try bu
 
 ## Configure MiSTer
 
-This (currently) requires a specially patched version of the main MiSTer binary, You can get that [here](https://github.com/jaysonlarose/Main_MiSTer_inputsocket/releases). I hope to get this added to the official MiSTer procject, but I digresss. This replaces the MiSTer file on the root of your MiSTer SD card.
+This (unfortunately) requires a specially patched version of the main MiSTer binary. You can get that [here](https://github.com/jaysonlarose/Main_MiSTer_inputsocket/releases). I tried to get this added to the official MiSTer project, but it was rejected. If anyone can decipher [the response I got](https://github.com/MiSTer-devel/Main_MiSTer/pull/629#issuecomment-1143338577), feel free to let me know. Anyways, replace the MiSTer file on the root of your MiSTer SD card with my version, or you're going to have a bad time.
 
 You'll also need to open up MiSTer.ini and add the following to it:
 
