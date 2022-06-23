@@ -357,16 +357,13 @@ class ControllerResources:# {{{
 		for k, v in self.sticks.items():
 			if k in all_buttons:
 				v.has_button = True
-
-			
-
-
 		# Process svg file
 		self.svgs = svg_state_split(self.base_svg)
-		if DUMP_RENDERS:
-			for k in self.svgs:
-				outfile = f"{k}.svg"
-				open(outfile, "wb").write(self.svgs[k])
+
+	def dump_svgs(self):		
+		for k in self.svgs:
+			outfile = f"{k}.svg"
+			open(outfile, "wb").write(self.svgs[k])
 # }}}
 # }}}
 class proppadict(dict):# {{{
@@ -945,6 +942,8 @@ class MisterVizWindow(Gtk.Window):# {{{
 		#self.resize(int(self.viz_width * scalefactor), int(self.viz_height * scalefactor))
 		#self.darea.connect("realize", self.darea_realize_handler)
 		self.show_all()
+		if DUMP_RENDERS:
+			self.res.dump_svgs()
 	# }}}
 	def pixbuf_receive_handler(self, key, pixbuf, x_offset, y_offset, scalefactor):# {{{
 		print(f"Receiving pixbuf for state: {key} (scale factor {scalefactor})")

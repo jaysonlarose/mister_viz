@@ -1,0 +1,28 @@
+name: PS1 Mini
+pid: 0x0cda
+vid: 0x054c
+svg: ps1.svg
+buttons:
+  BTN_A: triangle
+  BTN_B: circle
+  BTN_C: cross
+  BTN_TL: l1
+  BTN_TL2: select
+  BTN_TR: r1
+  BTN_TR2: start
+  BTN_X: square
+  BTN_Y: l2
+  BTN_Z: r2
+axes:
+  ABS_X:
+    # start of binary axis definition. delete me if you're defining a stick!
+    binary:
+      left: [0, 0]
+      right: [2, 2]
+    # end of binary axis definition.
+  ABS_Y:
+    # start of binary axis definition. delete me if you're defining a stick!
+    binary:
+      up: [0, 0]
+      down: [2, 2]
+    # end of binary axis definition.
