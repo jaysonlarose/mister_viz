@@ -100,7 +100,7 @@ def walk(tree):# {{{
 		ret.extend(walk(elem))
 	return ret
 # }}}
-def mangle(tree, state):# {{{
+def mangle(tree, state, debug=False):# {{{
 	"""
 	Steps recursively through the xml tree and inspects the "g" elements, aka layers.
 
@@ -122,7 +122,8 @@ def mangle(tree, state):# {{{
 	so it's safe to delete them.
 	"""
 	for elem in tree[:]:
-		#print(f"state {state} inspecting elem {elem}")
+		if debug:
+			print(f"state {state} inspecting elem {elem}")
 		if elem.tag == SVG_PREFIX + 'g':
 			display_val = get_xmlsubattrib(elem, 'style', 'display')
 			if 'data-state' in elem.attrib:
@@ -144,7 +145,7 @@ def mangle(tree, state):# {{{
 		mangle(elem, state)
 # }}}
 
-def devastate(tree):# {{{
+def devastate(tree, debug=False):# {{{
 	"""
 	This performs the third processing pass.  `mangle()` performs the second, and the
 	first happens in `svg_state_split()`.
@@ -171,6 +172,11 @@ PTT_OUTPUT_PREFIX = "OBS Jack 1:"
 #PTT_OUTPUT_PREFIX = "sc_compressor_stereo:in_"
 SVG_PREFIX = '{http://www.w3.org/2000/svg}'
 DUMP_RENDERS = False
+SOCKET_KEEPALIVE_INTERVAL = 5000
+SOCKET_KEEPALIVE_TIMEOUT  = 5000
+OP_INPUT = 0
+OP_PING  = 1
+OP_PONG  = 2
 
 def translate_constrainedint(sensor_val, in_from, in_to, out_from, out_to):# {{{
 	out_range = out_to - out_from
@@ -193,12 +199,15 @@ class Stick:# {{{
 		self.x_axis = None
 		self.y_axis = None
 		self.has_button = False
+		self.reset()
+	def reset(self):
+		pass
 # }}}
 class MisterButton:# {{{
 	def __init__(self, element):
 		self.element = element
-		self.value = 0
 		self.ptt = None
+		self.reset()
 	def set_value(self, value):
 		self.value = value
 		if self.ptt is not None:
@@ -209,6 +218,8 @@ class MisterButton:# {{{
 		return set()
 	def all_states(self):
 		return set([self.element])
+	def reset(self):
+		self.value = 0
 # }}}
 class MisterAxis:# {{{
 	def __init__(self, spec):
@@ -231,6 +242,7 @@ class MisterAxis:# {{{
 					self.minval, self.minpos = v[0]
 					self.maxval, self.maxpos = v[1]
 			self.is_stick = True
+		self.reset()
 	def set_value(self, value):
 		self.value = value
 	def get_state(self):
@@ -248,6 +260,8 @@ class MisterAxis:# {{{
 			for fromval, toval, elem in self.rangemap:
 				ret.add(elem)
 		return ret
+	def reset(self):
+		pass
 # }}}
 
 class JackPushToTalk:# {{{
@@ -299,7 +313,7 @@ def svg_to_pixbuf(svg_bytes, scale_factor):# {{{
 	pixbuf = pil_to_pixbuf(pil_img, mode="RGBA")
 	return pixbuf
 # }}}
-def svg_state_split(svg_bytes):# {{{
+def svg_state_split(svg_bytes, debug=False):# {{{
 	ret = {}
 	tree = lxml.etree.fromstring(svg_bytes)
 	flat = walk(tree)
@@ -313,8 +327,8 @@ def svg_state_split(svg_bytes):# {{{
 	states.append(None)
 	for state in states:
 		chip = copy.deepcopy(tree)
-		mangle(chip, state)
-		devastate(chip)
+		mangle(chip, state, debug=debug)
+		devastate(chip, debug=debug)
 		ret[state] = lxml.etree.tostring(chip)
 	return ret
 # }}}
@@ -541,17 +555,25 @@ def scaler_process_func(inq, outq, pipe=None):# {{{
 # }}}
 
 class MisterViz:# {{{
-	def __init__(self, hostname, do_window=True):# {{{
+	def __init__(self, hostname, do_window=True, debug=False):# {{{
 		self.hostname = hostname
 		self.sock = None
+		self.debug = debug
 		self.connection_status = "disconnected"
+		self.connect_handle = None
+		self.socket_handle = None
 		if self.hostname is not None:
-			GLib.idle_add(self.connect_handler)
+			self.connect_handle = GLib.idle_add(self.connect_handler)
 		self.window = None
 		self.seen_window = None
 		self.windows = {}
 		self.res_lookup = {}
 		self.seen_events = {}
+		# keepalive_state:
+		# * "idle" - waiting to send ping (keepalive_handle is for timer to send next ping)
+		# * "wait" - waiting for pong (keepalive handle is for timer to detect timeout)
+		self.keepalive_state = None
+		self.keepalive_handle = None
 
 
 		if sys.platform == "win32":
@@ -719,27 +741,52 @@ class MisterViz:# {{{
 	# }}}
 	def connect_button_handler(self, widget):# {{{
 		self.hostname = self.hostname_entry.get_text()
+		print(f"connection status: {self.connection_status}")
 		if self.connection_status == "disconnected":
-			GLib.idle_add(self.connect_handler)
+			self.connect_handle = GLib.idle_add(self.connect_handler)
 		elif self.connection_status == "connecting":
-			self.connection_status = "disconnected"
-			if self.window is not None:
-				self.connect_button.set_label("Connect")
+			self.disconnect()
 		elif self.connection_status == "connected":
-			print("Disconnected!")
-			self.connection_status = "disconnected"
-			self.sock.close()
-			self.sock = None
+			self.disconnect()
 			if self.window is not None:
-				self.connect_button.set_label("Connect")
-				self.hostname_entry.set_sensitive(True)
 				for key in list(self.windows):
 					self.windows[key].destroy()
-			# Neutral out all the buttons.
-			for win in self.windows.values():
-				for btn in win.res.buttons.values():
-					btn.set_value(0)
 # }}}
+	def disconnect(self, reconnect=False):# {{{
+		# Tear down the socket
+		if self.sock is not None:
+			self.sock.close()
+		self.sock = None
+		# Remove the io watch for the socket
+		if self.socket_handle is not None:
+			GLib.source_remove(self.socket_handle)
+			self.socket_handle = None
+		# Reset button state on any open viz windows
+		for win in self.windows.values():
+			win.reset()
+		# Update connect button and hostname entrybox
+		if self.window is not None:
+			if not reconnect:
+				self.connect_button.set_label("Connect")
+				self.hostname_entry.set_sensitive(True)
+			else:
+				self.connect_button.set_label("Cancel")
+		# Tear down the keepalive stuff
+		if self.keepalive_handle is not None:
+			GLib.source_remove(self.keepalive_handle)
+			self.keepalive_handle = None
+			self.keepalive_state  = None
+		if not reconnect:
+			self.connection_status = "disconnected"
+		else:
+			self.connection_status = "connecting"
+			if self.connect_handle is not None:
+				GLib.source_remove(self.connect_handle)
+				self.connect_handle = None
+			self.connect_handle = GLib.timeout_add(100, self.connect_handler)
+			
+		print("Disconnected!")
+	# }}}
 	def setup_joystick_ptt(self):# {{{
 		procargs = ['alsa_in', '-d', PTT_ALSA_DEVICE, '-c', f"{PTT_CHANNEL_QTY}", '-j', PTT_INPUT_NAME, '-r', f"{PTT_SAMPLE_RATE}"]
 		proc = subprocess.Popen(procargs, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -747,110 +794,160 @@ class MisterViz:# {{{
 		self.ptt = JackPushToTalk("joystick_ptt", PTT_INPUT_PREFIX, PTT_OUTPUT_PREFIX)
 	# }}}
 	def connect_handler(self):# {{{
+		if self.connect_handle is not None:
+			GLib.source_remove(self.connect_handle)
+			self.connect_handle = None
+		if self.socket_handle is not None:
+			GLib.source_remove(self.socket_handle)
+			self.socket_handle = None
+		if self.window is not None:
+			self.connect_button.set_label("Cancel")
+			self.hostname_entry.set_text(self.hostname)
+			self.hostname_entry.set_sensitive(False)
+		self.connection_status = "connecting"
 		try:
 			sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
 			print("Connecting...")
-			self.connection_status = "connecting"
 			sock.connect((self.hostname, 22101))
-			if self.window is not None:
-				self.connect_button.set_label("Cancel")
-				self.hostname_entry.set_text(self.hostname)
-				self.hostname_entry.set_sensitive(False)
 			print("Connected!")
 			if self.window is not None:
 				self.connect_button.set_label("Disconnect")
 			self.connection_status = "connected"
 			self.sock = sock
-			GLib.io_add_watch(self.sock, GLib.IO_IN | GLib.IO_HUP, self.socket_handler)
+			self.socket_handle = GLib.io_add_watch(self.sock, GLib.IO_IN | GLib.IO_HUP, self.socket_handler)
+			if self.keepalive_handle is not None:
+				GLib.source_remove(self.keepalive_handle)
+				self.keepalive_handle = None
+			self.keepalive_handle = GLib.timeout_add(10000, self.keepalive_handler)
 			return False
 		except OSError:
 			print("Connection failed!")
 			if self.connection_status == "connecting":
-				GLib.timeout_add(100, self.connect_handler)
+				self.connect_handle = GLib.timeout_add(100, self.connect_handler)
 			return False
 	# }}}
+	def keepalive_handler(self):# {{{
+		if not self.sock._closed:
+			self.sock.send(bytes([OP_PING]))
+		if self.keepalive_handle is not None:
+			GLib.source_remove(self.keepalive_handle)
+			self.keepalive_handle = None
+		self.keepalive_state = "wait"
+		self.keepalive_handle = GLib.timeout_add(SOCKET_KEEPALIVE_TIMEOUT, self.keepalive_timeout_handler)
+	# }}}
+	def keepalive_timeout_handler(self):# {{{
+		if self.connect_handle is not None:
+			GLib.source_remove(self.connect_handle)
+			self.connect_handle = None
+		print("Timeout!")
+		self.disconnect()
+		if self.window is not None:
+			self.connect_button.set_label("Cancel")
+		
+		self.connect_handle = GLib.timeout_add(100, self.connect_handler)
+		return False
+	# }}}
 	def socket_handler(self, fd, flags):# {{{
-		if flags & GLib.IO_IN:
-			data = self.sock.recv(MISTER_STRUCT_SIZE)
-			#print(f"got {len(data)} bytes")
-			if len(data) == 0:
-				print("Disconnected!")
-				self.connection_status = "connecting"
-				if self.window is not None:
-					self.connect_button.set_label("Cancel")
-				self.sock.close()
-				self.sock = None
-				GLib.timeout_add(100, self.connect_handler)
-				return False
-			vals = struct.unpack(MISTER_STRUCT, data)
-			inputno = vals[0]
-			vid = vals[1]
-			pid = vals[2]
-			key = f"{vid:04x}:{pid:04x}"
-			event_vals = [0, 0] + list(vals[3:])
-			event = evdev_categorize(evdev_InputEvent(*event_vals))
-			superevent = event
-			if hasattr(event, 'event'):
-				event = event.event
-			print_event = True
-			if ecodes.EV[event.type] == 'EV_SYN':
-				print_event = False
-			if ecodes.EV[event.type] == 'EV_KEY':
-				if event.value == 2:
+		try:
+			# Handle incoming data packet
+			if flags & GLib.IO_IN:
+				try:
+					opcode_pkt = self.sock.recv(1)
+					if len(opcode_pkt) == 0:
+						data = b''
+					elif opcode_pkt[0] == OP_PONG:
+						if self.keepalive_handle is not None:
+							GLib.source_remove(self.keepalive_handle)
+							self.keepalive_handle = None
+						self.keepalive_state = "idle"
+						self.keepalive_handle = GLib.timeout_add(SOCKET_KEEPALIVE_INTERVAL, self.keepalive_handler)
+						return True
+					elif opcode_pkt[0] == OP_INPUT:
+						data = self.sock.recv(MISTER_STRUCT_SIZE)
+					else:
+						print(f"Unknown opcode {opcode}")
+						data = b''
+				except ConnectionResetError:
+					data = b''
+				#print(f"got {len(data)} bytes")
+				if len(data) == 0:
+					self.disconnect()
+					print("Disconnected!")
+					self.connection_status = "connecting"
+					if self.window is not None:
+						self.connect_button.set_label("Cancel")
+					if self.connect_handle is not None:
+						GLib.source_remove(self.connect_handle)
+						self.connect_handle = None
+					self.connect_handle = GLib.timeout_add(100, self.connect_handler)
+					return False
+				vals = struct.unpack(MISTER_STRUCT, data)
+				inputno = vals[0]
+				vid = vals[1]
+				pid = vals[2]
+				key = f"{vid:04x}:{pid:04x}"
+				event_vals = [0, 0] + list(vals[3:])
+				event = evdev_categorize(evdev_InputEvent(*event_vals))
+				superevent = event
+				if hasattr(event, 'event'):
+					event = event.event
+				print_event = True
+				if ecodes.EV[event.type] == 'EV_SYN':
 					print_event = False
-			if print_event:
-				print(superevent)
-				print(f"  input {inputno} {vid:04x}:{pid:04x}: {event}")
-			if key in self.windows:
-				win = self.windows[key]
-				ev_type = ecodes.EV[event.type]
-				if ev_type == 'EV_SYN':
-					win.apply_event_queue()
+				if ecodes.EV[event.type] == 'EV_KEY':
+					if event.value == 2:
+						print_event = False
+				if print_event:
+					print(superevent)
+					print(f"  input {inputno} {vid:04x}:{pid:04x}: {event}")
+				if key in self.windows:
+					win = self.windows[key]
+					ev_type = ecodes.EV[event.type]
+					if ev_type == 'EV_SYN':
+						win.apply_event_queue()
+					else:
+						win.event_queue.append(event)
 				else:
-					win.event_queue.append(event)
-			else:
-				if vid in self.res_lookup:
-					if pid in self.res_lookup[vid]:
-						print(f"Found resource for vid/pid {vid:04x}:{pid:04x}, instantiating window")
-						win = MisterVizWindow(self.res_lookup[vid][pid], self)
-						self.windows[key] = win
-						win.connect("destroy", self.window_destroy_handler)
-						if 'ptt' in win.res.config and self.ptt is not None:
-							ptt_elem = win.res.config['ptt']
-							if ptt_elem in win.res.buttons:
-								win.res.buttons[ptt_elem].ptt = self.ptt
+					if vid in self.res_lookup:
+						if pid in self.res_lookup[vid]:
+							print(f"Found resource for vid/pid {vid:04x}:{pid:04x}, instantiating window")
+							win = MisterVizWindow(self.res_lookup[vid][pid], self)
+							self.windows[key] = win
+							win.connect("destroy", self.window_destroy_handler)
+							if 'ptt' in win.res.config and self.ptt is not None:
+								ptt_elem = win.res.config['ptt']
+								if ptt_elem in win.res.buttons:
+									win.res.buttons[ptt_elem].ptt = self.ptt
 
-			update_seen_window = False
-			if key not in self.seen_events:
-				self.seen_events[key] = {}
-				if not self.seen_but.get_sensitive():
-					self.seen_but.set_sensitive(True)
-				update_seen_window = True
-			subkey = f"{event.type}:{event.code}"
-			if subkey not in self.seen_events[key]:
-				self.seen_events[key][subkey] = [event.value, event.value]
-				update_seen_window = True
-			else:
-				if event.value < self.seen_events[key][subkey][0]:
-					self.seen_events[key][subkey][0] = event.value
+				update_seen_window = False
+				if key not in self.seen_events:
+					self.seen_events[key] = {}
+					if not self.seen_but.get_sensitive():
+						self.seen_but.set_sensitive(True)
 					update_seen_window = True
-				if event.value > self.seen_events[key][subkey][1]:
-					self.seen_events[key][subkey][1] = event.value
+				subkey = f"{event.type}:{event.code}"
+				if subkey not in self.seen_events[key]:
+					self.seen_events[key][subkey] = [event.value, event.value]
 					update_seen_window = True
+				else:
+					if event.value < self.seen_events[key][subkey][0]:
+						self.seen_events[key][subkey][0] = event.value
+						update_seen_window = True
+					if event.value > self.seen_events[key][subkey][1]:
+						self.seen_events[key][subkey][1] = event.value
+						update_seen_window = True
 
-			if update_seen_window and self.seen_window is not None:
-				GLib.idle_add(self.seen_window.update)
-		elif flags & GLib.IO_HUP:
-			print("Disconnected!")
-			self.connection_status = "connecting"
-			if self.window is not None:
-				self.connect_button.set_label("Cancel")
-			self.sock.close()
-			self.sock = None
-			GLib.timeout_add(100, self.connect_handler)
-			return False
+				if update_seen_window and self.seen_window is not None:
+					GLib.idle_add(self.seen_window.update)
+			# One of many ways a socket can signal that it's going away.
+			elif flags & GLib.IO_HUP:
+				self.disconnect(reconnect=True)
+				return False
 
-		return True
+			return True
+		except Exception as e:
+			for line in traceback.format_exc().splitlines():
+				print(f"exception: {line}")
 	# }}}
 	def ownwindow_destroy_handler(self, window):# {{{
 		self.window = None
@@ -944,6 +1041,7 @@ class MisterVizWindow(Gtk.Window):# {{{
 		self.show_all()
 		if DUMP_RENDERS:
 			self.res.dump_svgs()
+		self.reset()
 	# }}}
 	def pixbuf_receive_handler(self, key, pixbuf, x_offset, y_offset, scalefactor):# {{{
 		print(f"Receiving pixbuf for state: {key} (scale factor {scalefactor})")
@@ -978,7 +1076,7 @@ class MisterVizWindow(Gtk.Window):# {{{
 		for x in self.res.axes.values():
 			allstate |= x.get_state()
 		if key in allstate:
-			self.queue_draw()
+			self.darea.queue_draw()
 		# Populate sticks first
 		for k, stick in self.res.sticks.items():
 			if stick.has_button:
@@ -1006,6 +1104,15 @@ class MisterVizWindow(Gtk.Window):# {{{
 		if next_pixbuf_key is not None:
 			self.parent.scaler.scale_svg([self.res.vid, self.res.pid, next_pixbuf_key], self.res.svgs[next_pixbuf_key], self.scalefactor)
 # }}}
+	def reset(self):# {{{
+		try:
+			for widget in list(self.res.buttons.values()) + list(self.res.axes.values()) + list(self.res.sticks.values()):
+				widget.reset()
+			self.darea.queue_draw()
+		except Exception as e:
+			for line in traceback.format_exc().splitlines():
+				print(f"exception: {line}")
+	# }}}
 	def apply_event_queue(self):# {{{
 		for event in self.event_queue:
 			ev_type = ecodes.EV[event.type]
@@ -1026,7 +1133,7 @@ class MisterVizWindow(Gtk.Window):# {{{
 				if ev_code in self.res.axes:
 					self.res.axes[ev_code].set_value(event.value)
 		self.event_queue = []
-		self.queue_draw()
+		self.darea.queue_draw()
 	# }}}
 	def darea_realize_handler(self, widget):# {{{
 		print("darea_realize_handler")
@@ -1055,63 +1162,72 @@ class MisterVizWindow(Gtk.Window):# {{{
 		self.darea.queue_draw()
 	# }}}
 	def draw_handler(self, widget, cr):# {{{
-		cr.set_source_rgba(0, 0, 0, 1)
-		cr.paint()
-		if None not in self.pixbufs:
-			return
-		Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[None][0], self.pixbufs[None][1], self.pixbufs[None][2])
-		cr.paint()
-		allstate = set()
-		for x in self.res.buttons.values():
-			allstate |= x.get_state()
-		for x in self.res.axes.values():
-			allstate |= x.get_state()
+		if self.parent.debug:
+			print("draw_handler begin")
+		try:
+			cr.set_source_rgba(0, 0, 0, 1)
+			cr.paint()
+			if None not in self.pixbufs:
+				return
+			Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[None][0], self.pixbufs[None][1], self.pixbufs[None][2])
+			cr.paint()
+			allstate = set()
+			for x in self.res.buttons.values():
+				allstate |= x.get_state()
+			for x in self.res.axes.values():
+				allstate |= x.get_state()
 
-		for state in allstate:
-			if state in self.res.sticks:
-				continue
-			if state in self.pixbufs:
-				Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[state][0], self.pixbufs[state][1], self.pixbufs[state][2])
-				cr.paint()
+			for state in allstate:
+				if state in self.res.sticks:
+					continue
+				if state in self.pixbufs:
+					Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[state][0], self.pixbufs[state][1], self.pixbufs[state][2])
+					cr.paint()
 
-		for k, stick in self.res.sticks.items():
-			if stick.has_button:
-				if k in allstate:
-					pixkey = f"{k} active"
+			for k, stick in self.res.sticks.items():
+				if stick.has_button:
+					if k in allstate:
+						pixkey = f"{k} active"
+					else:
+						pixkey = f"{k} idle"
 				else:
-					pixkey = f"{k} idle"
-			else:
-				pixkey = k
-			if pixkey in self.pixbufs:
-				offsets = {
-					'x': 0,
-					'y': 0,
-				}
-				for off in offsets:
-					axis = getattr(stick, f"{off}_axis")
-					if axis is not None and axis.value is not None:
-						offsets[off] = translate_constrainedint(axis.value, axis.minval, axis.maxval, axis.minpos, axis.maxpos)
-				if stick.x_axis is not None and stick.y_axis is not None:
-					circularize = True
-					for attr in ['minval', 'maxval', 'minpos', 'maxpos']:
-						if getattr(stick.x_axis, attr) != getattr(stick.y_axis, attr):
-							circularize= False
-							break
-					if circularize:
-						maxrange = stick.x_axis.maxpos - stick.x_axis.minpos
-						angle = math.atan2(offsets['y'], offsets['x'])
-						magnitude = math.sqrt(offsets['x'] * offsets['x'] + offsets['y'] * offsets['y'])
-						if magnitude > (maxrange // 2):
-							magnitude = maxrange // 2
-						offsets['x'] = magnitude * math.cos(angle)
-						offsets['y'] = magnitude * math.sin(angle)
+					pixkey = k
+				if pixkey in self.pixbufs:
+					offsets = {
+						'x': 0,
+						'y': 0,
+					}
+					for off in offsets:
+						axis = getattr(stick, f"{off}_axis")
+						if axis is not None and axis.value is not None:
+							offsets[off] = translate_constrainedint(axis.value, axis.minval, axis.maxval, axis.minpos, axis.maxpos)
+					if stick.x_axis is not None and stick.y_axis is not None:
+						circularize = True
+						for attr in ['minval', 'maxval', 'minpos', 'maxpos']:
+							if getattr(stick.x_axis, attr) != getattr(stick.y_axis, attr):
+								circularize= False
+								break
+						if circularize:
+							maxrange = stick.x_axis.maxpos - stick.x_axis.minpos
+							angle = math.atan2(offsets['y'], offsets['x'])
+							magnitude = math.sqrt(offsets['x'] * offsets['x'] + offsets['y'] * offsets['y'])
+							if magnitude > (maxrange // 2):
+								magnitude = maxrange // 2
+							offsets['x'] = magnitude * math.cos(angle)
+							offsets['y'] = magnitude * math.sin(angle)
 
-				Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[pixkey][0], (offsets['x'] * self.scalefactor) + self.pixbufs[pixkey][1], (offsets['y'] * self.scalefactor) + self.pixbufs[pixkey][2])
-				cr.paint()
+					Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[pixkey][0], (offsets['x'] * self.scalefactor) + self.pixbufs[pixkey][1], (offsets['y'] * self.scalefactor) + self.pixbufs[pixkey][2])
+					cr.paint()
+		except Exception:
+			for line in traceback.format_exc().splitlines():
+				print(f"exception: {line}")
+		if self.parent.debug:
+			print("draw_handler finish")
+
 	# }}}
 # }}}
 
-class MisterSeenEventsWindow(Gtk.Window):
+class MisterSeenEventsWindow(Gtk.Window):# {{{
 	def __init__(self, parent):# {{{
 		try:
 			self.parent = parent
@@ -1146,7 +1262,7 @@ class MisterSeenEventsWindow(Gtk.Window):
 			GLib.idle_add(self.update)
 		except Exception as e:
 			for line in traceback.format_exc().splitlines():
-				print(line)
+				print(f"exception: {line}")
 	# }}}
 	def update(self):# {{{
 		try:
@@ -1166,7 +1282,7 @@ class MisterSeenEventsWindow(Gtk.Window):
 				self.next_but.set_sensitive(True)
 			events_dict = self.parent.seen_events[self.current_key]
 
-			pid, vid = self.current_key.split(":", 1)
+			vid, pid = self.current_key.split(":", 1)
 
 			tprint(f"name: <controller name>")
 			tprint(f"vid: 0x{vid}")
@@ -1207,8 +1323,8 @@ class MisterSeenEventsWindow(Gtk.Window):
 					tprint(f"  {axname}:")
 					tprint(f"    # start of binary axis definition. delete me if you're defining a stick!")
 					tprint(f"    binary:")
-					tprint(f"      <svg_state>: [{minval, minval}]")
-					tprint(f"      <svg_state>: [{maxval, maxval}]")
+					tprint(f"      <svg_state>: [{minval}, {minval}]")
+					tprint(f"      <svg_state>: [{maxval}, {maxval}]")
 					tprint(f"    # end of binary axis definition.")
 					tprint(f"    # start of stick axis definition. delete me if you're defining a binary axis!")
 					tprint(f"    stick:")
@@ -1220,7 +1336,7 @@ class MisterSeenEventsWindow(Gtk.Window):
 
 		except Exception as e:
 			for line in traceback.format_exc().splitlines():
-				print(line)
+				print(f"exception: {line}")
 
 		return False
 # }}}
@@ -1233,7 +1349,7 @@ class MisterSeenEventsWindow(Gtk.Window):
 			GLib.idle_add(self.update)
 		except Exception as e:
 			for line in traceback.format_exc().splitlines():
-				print(line)
+				print(f"exception: {line}")
 # }}}
 	def next_button_handler(self, widget):# {{{
 		try:
@@ -1244,7 +1360,7 @@ class MisterSeenEventsWindow(Gtk.Window):
 			GLib.idle_add(self.update)
 		except Exception as e:
 			for line in traceback.format_exc().splitlines():
-				print(line)
+				print(f"exception: {line}")
 # }}}
 	def copy_button_handler(self, widget):# {{{
 		try:
@@ -1253,9 +1369,9 @@ class MisterSeenEventsWindow(Gtk.Window):
 			clipboard.set_text(text, len(text.encode()))
 		except Exception as e:
 			for line in traceback.format_exc().splitlines():
-				print(line)
+				print(f"exception: {line}")
 	# }}}
-
+# }}}
 
 
 if __name__ == '__main__':
@@ -1268,8 +1384,9 @@ if __name__ == '__main__':
 		import argparse
 		parser = argparse.ArgumentParser()
 		parser.add_argument("hostname", default=None, nargs="?")
+		parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)
 		args = parser.parse_args()
-		app = MisterViz(args.hostname)
+		app = MisterViz(args.hostname, debug=args.debug)
 	else:
 		app = MisterViz(None)
 
