@@ -161,7 +161,7 @@ def devastate(tree, debug=False):# {{{
 		devastate(elem)
 # }}}
 
-MISTER_STRUCT = "<BHHHHi"
+MISTER_STRUCT = "<BBHHHHi"
 MISTER_STRUCT_SIZE = struct.calcsize(MISTER_STRUCT)
 PTT_ALSA_DEVICE = "hw:CARD=Device,DEV=0"
 PTT_SAMPLE_RATE = 48000
@@ -883,10 +883,11 @@ class MisterViz:# {{{
 					return False
 				vals = struct.unpack(MISTER_STRUCT, data)
 				inputno = vals[0]
-				vid = vals[1]
-				pid = vals[2]
+				player_id = vals[1]
+				vid = vals[2]
+				pid = vals[3]
 				key = f"{vid:04x}:{pid:04x}"
-				event_vals = [0, 0] + list(vals[3:])
+				event_vals = [0, 0] + list(vals[4:])
 				event = evdev_categorize(evdev_InputEvent(*event_vals))
 				superevent = event
 				if hasattr(event, 'event'):
@@ -899,7 +900,7 @@ class MisterViz:# {{{
 						print_event = False
 				if print_event:
 					print(superevent)
-					print(f"  input {inputno} {vid:04x}:{pid:04x}: {event}")
+					print(f"  input {inputno} player {player_id} {vid:04x}:{pid:04x}: {event}")
 				if key in self.windows:
 					win = self.windows[key]
 					ev_type = ecodes.EV[event.type]
