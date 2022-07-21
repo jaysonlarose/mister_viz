@@ -1,0 +1,35 @@
+name: JaysTech Jaguar Controller Adapter
+vid: 0x1a61
+pid: 0x2043
+svg: jaguar.svg
+buttons:
+  JOYBUTTON_0: a
+  JOYBUTTON_1: b
+  JOYBUTTON_2: c
+  JOYBUTTON_3: option
+  JOYBUTTON_4: pause
+  JOYBUTTON_5: "1"
+  JOYBUTTON_6: "2"
+  JOYBUTTON_7: "3"
+  JOYBUTTON_8: "4"
+  JOYBUTTON_9: "5"
+  JOYBUTTON_10: "6"
+  JOYBUTTON_11: "7"
+  JOYBUTTON_12: "8"
+  JOYBUTTON_13: "9"
+  JOYBUTTON_14: "*"
+  JOYBUTTON_15: "0"
+  JOYBUTTON_16: "#"
+axes:
+  ABS_X:
+    # start of binary axis definition. delete me if you're defining a stick!
+    binary:
+      left: [-1, -1]
+      right: [1, 1]
+    # end of binary axis definition.
+  ABS_Y:
+    # start of binary axis definition. delete me if you're defining a stick!
+    binary:
+      up: [-1, -1]
+      down: [1, 1]
+    # end of binary axis definition.

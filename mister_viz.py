@@ -16,15 +16,12 @@ try:
 except ImportError:
 	jack_disabled = True
 
-try:
-	from evdev import InputEvent as evdev_InputEvent
-	from evdev.util import categorize as evdev_categorize
-	from evdev import ecodes
-except ImportError:
-	print("ImportError using evdev, faking it")
-	from fake_events import InputEvent as evdev_InputEvent
-	from fake_events import categorize as evdev_categorize
-	import fake_ecodes as ecodes
+# We used to use the real evdev.ecodes library, now we don't.
+# This is completely because evdev.ecodes starts having problems when
+# dealing with more than 12 joystick buttons.
+from fake_events import InputEvent as evdev_InputEvent
+from fake_events import categorize as evdev_categorize
+import fake_ecodes as ecodes
 
 def get_userconfig_dir():# {{{
 	"""
@@ -685,11 +682,16 @@ class MisterViz:# {{{
 
 		resources = {}
 		for yaml_file in yaml_files:
-			resource = ControllerResources(yaml_file)
-			if resource.config['name'] not in resources:
-				resources[resource.config['name']] = {}
-			print(f"Found resource \"{resource.config['name']}\"")
-			resources[resource.config['name']] = resource
+			try:
+				resource = ControllerResources(yaml_file)
+				if resource.config['name'] not in resources:
+					resources[resource.config['name']] = {}
+				print(f"Found resource \"{resource.config['name']}\"")
+				resources[resource.config['name']] = resource
+			except Exception as e:
+				print(f"Error occurred trying to parse {yaml_file}:")
+				for line in traceback.format_exc().splitlines():
+					print(f"  exception: {line}")
 
 		self.resources = resources
 
@@ -920,26 +922,27 @@ class MisterViz:# {{{
 								if ptt_elem in win.res.buttons:
 									win.res.buttons[ptt_elem].ptt = self.ptt
 
-				update_seen_window = False
-				if key not in self.seen_events:
-					self.seen_events[key] = {}
-					if not self.seen_but.get_sensitive():
-						self.seen_but.set_sensitive(True)
-					update_seen_window = True
-				subkey = f"{event.type}:{event.code}"
-				if subkey not in self.seen_events[key]:
-					self.seen_events[key][subkey] = [event.value, event.value]
-					update_seen_window = True
-				else:
-					if event.value < self.seen_events[key][subkey][0]:
-						self.seen_events[key][subkey][0] = event.value
+				if self.window:
+					update_seen_window = False
+					if key not in self.seen_events:
+						self.seen_events[key] = {}
+						if not self.seen_but.get_sensitive():
+							self.seen_but.set_sensitive(True)
 						update_seen_window = True
-					if event.value > self.seen_events[key][subkey][1]:
-						self.seen_events[key][subkey][1] = event.value
+					subkey = f"{event.type}:{event.code}"
+					if subkey not in self.seen_events[key]:
+						self.seen_events[key][subkey] = [event.value, event.value]
 						update_seen_window = True
+					else:
+						if event.value < self.seen_events[key][subkey][0]:
+							self.seen_events[key][subkey][0] = event.value
+							update_seen_window = True
+						if event.value > self.seen_events[key][subkey][1]:
+							self.seen_events[key][subkey][1] = event.value
+							update_seen_window = True
 
-				if update_seen_window and self.seen_window is not None:
-					GLib.idle_add(self.seen_window.update)
+					if update_seen_window and self.seen_window is not None:
+						GLib.idle_add(self.seen_window.update)
 			# One of many ways a socket can signal that it's going away.
 			elif flags & GLib.IO_HUP:
 				self.disconnect(reconnect=True)
@@ -1305,7 +1308,7 @@ class MisterSeenEventsWindow(Gtk.Window):# {{{
 					if isinstance(ev_code, str):
 						ev_code = [ev_code]
 					# Shorter is better
-					ev_code = sorted(ev_code, key=lambda x: len(x))[0]
+					ev_code = sorted(ev_code, key=lambda x: [0 if x.startswith("JOYBUTTON_") else 1, len(x)])[0]
 					button_defs.append(ev_code)
 				elif ev_type == 'EV_ABS':
 					ev_code = ecodes.ABS[ev_codenum]
@@ -1386,8 +1389,9 @@ if __name__ == '__main__':
 		parser = argparse.ArgumentParser()
 		parser.add_argument("hostname", default=None, nargs="?")
 		parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)
+		parser.add_argument("-n", "--no-window", action="store_false", dest="do_window", default=True, help="Don't create a main window")
 		args = parser.parse_args()
-		app = MisterViz(args.hostname, debug=args.debug)
+		app = MisterViz(args.hostname, debug=args.debug, do_window=args.do_window)
 	else:
 		app = MisterViz(None)
 
