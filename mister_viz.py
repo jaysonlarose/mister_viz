@@ -160,13 +160,6 @@ def devastate(tree, debug=False):# {{{
 
 MISTER_STRUCT = "<BBHHHHi"
 MISTER_STRUCT_SIZE = struct.calcsize(MISTER_STRUCT)
-PTT_ALSA_DEVICE = "hw:CARD=Device,DEV=0"
-PTT_SAMPLE_RATE = 48000
-PTT_CHANNEL_QTY = 1
-PTT_INPUT_NAME = "ptt_mic"
-PTT_INPUT_PREFIX = f"{PTT_INPUT_NAME}:"
-PTT_OUTPUT_PREFIX = "OBS Jack 1:"
-#PTT_OUTPUT_PREFIX = "sc_compressor_stereo:in_"
 SVG_PREFIX = '{http://www.w3.org/2000/svg}'
 DUMP_RENDERS = False
 SOCKET_KEEPALIVE_INTERVAL = 5000
@@ -175,6 +168,9 @@ OP_INPUT = 0
 OP_PING  = 1
 OP_PONG  = 2
 
+def call_dbus_method(bus, service, path, interface, method, *args, **kwargs):# {{{
+	return bus.get_object(service, path).get_dbus_method(method, interface)(*args, **kwargs)
+# }}}
 def translate_constrainedint(sensor_val, in_from, in_to, out_from, out_to):# {{{
 	out_range = out_to - out_from
 	in_range = in_to - in_from
@@ -262,47 +258,18 @@ class MisterAxis:# {{{
 # }}}
 
 class JackPushToTalk:# {{{
-	def __init__(self, client_name, input_prefix, output_prefix):
-		self.jack_client = jack.Client(client_name)
-		self.input_prefix = input_prefix
-		self.output_prefix = output_prefix
-		self.value = 0
-		self.jack_client.set_port_registration_callback(self.port_reg_callback)
-		self.enumerate_ports()
-	def enumerate_ports(self):
-		print("enumerating jack ports")
-		self.jack_inputs = [ x for x in self.jack_client.get_ports() if x.name.startswith(self.input_prefix) ]
-		self.jack_outputs = [ x for x in self.jack_client.get_ports() if x.name.startswith(self.output_prefix) ]
-		self.set_value(self.value)
-# }}}
-	def port_reg_callback(self, port, registering):# {{{
-		"""
-		port_reg_callback originates from the jack client object
-		and probably lives in a different thread/process.
+	def __init__(self):
+		import dbus, dbus.mainloop.glib
+		dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+		self.dbus = dbus.SessionBus()
 
-		we use it to schedule a call to port_reg_handler, so it's
-		all happy with GLib.
-		"""
-		argies = [port, registering]
-		GLib.idle_add(self.port_reg_handler, argies)
-	def port_reg_handler(self, argies):
-		self.enumerate_ports()
 	def set_value(self, value):
 		self.value = value
-		for inport in self.jack_inputs:
-			for outport in self.jack_outputs:
-				if self.value == 1:
-					print(f"connecting ports: {inport.name} -> {outport.name}")
-					try:
-						self.jack_client.connect(inport, outport)
-					except jack.JackErrorCode:
-						pass
-				else:
-					print(f"disconnecting ports: {inport.name} -> {outport.name}")
-					try:
-						self.jack_client.disconnect(inport, outport)
-					except jack.JackErrorCode:
-						pass
+		if self.value == 1:
+			setval = True
+		else:
+			setval = False
+		call_dbus_method(self.dbus, "org.interlaced.jack_ptt", "/org/interlaced/jack_ptt", "org.freedesktop.DBus.Properties", "Set", "org.interlaced.jack_ptt", "attach", setval)
 # }}}
 def svg_to_pixbuf(svg_bytes, scale_factor):# {{{
 	fobj = io.BytesIO(cairosvg.svg2png(svg_bytes, scale=scale_factor))
@@ -790,10 +757,7 @@ class MisterViz:# {{{
 		print("Disconnected!")
 	# }}}
 	def setup_joystick_ptt(self):# {{{
-		procargs = ['alsa_in', '-d', PTT_ALSA_DEVICE, '-c', f"{PTT_CHANNEL_QTY}", '-j', PTT_INPUT_NAME, '-r', f"{PTT_SAMPLE_RATE}"]
-		proc = subprocess.Popen(procargs, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-		self.procs.append(proc)
-		self.ptt = JackPushToTalk("joystick_ptt", PTT_INPUT_PREFIX, PTT_OUTPUT_PREFIX)
+		self.ptt = JackPushToTalk()
 	# }}}
 	def connect_handler(self):# {{{
 		if self.connect_handle is not None:
