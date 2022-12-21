@@ -17,12 +17,12 @@
      id="defs888" />
   <sodipodi:namedview
      id="namedview886"
-     pagecolor="#ffffff"
+     pagecolor="#ff00ff"
      bordercolor="#666666"
      borderopacity="1.0"
      inkscape:pageshadow="2"
-     inkscape:pageopacity="0.0"
-     inkscape:pagecheckerboard="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="false"
      showgrid="false"
      inkscape:snap-object-midpoints="true"
      inkscape:snap-global="true"
@@ -36,7 +36,7 @@
      inkscape:snap-midpoints="true"
      inkscape:snap-intersection-paths="true"
      inkscape:zoom="1.4492308"
-     inkscape:cx="289.80891"
+     inkscape:cx="284.97876"
      inkscape:cy="100.7431"
      inkscape:window-width="3840"
      inkscape:window-height="2134"
@@ -47,7 +47,8 @@
      fit-margin-top="0"
      fit-margin-left="0"
      fit-margin-right="0"
-     fit-margin-bottom="0" />
+     fit-margin-bottom="0"
+     showborder="true" />
   <g
      inkscape:groupmode="layer"
      id="layer1"

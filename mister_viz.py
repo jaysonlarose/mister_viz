@@ -5,7 +5,7 @@ import os, sys
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib, Gdk, GdkPixbuf, GObject
-import cairosvg, cairo, io, PIL.Image, struct, yaml, lxml.etree, copy, math, socket, subprocess, atexit, multiprocessing, queue, time, traceback, psutil
+import cairosvg, cairo, io, PIL.Image, struct, yaml, lxml.etree, copy, math, socket, subprocess, atexit, multiprocessing, queue, time, traceback, psutil, datetime
 
 global print
 global orig_print
@@ -34,15 +34,39 @@ def get_userconfig_dir():# {{{
 		return os.environ['XDG_CONFIG_HOME']
 	return os.path.join(os.environ['HOME'], '.config')
 # }}}
+def get_yaml_basedir():# {{{
+	if sys.platform == "win32":
+		return os.path.expanduser("~/mister_viz")
+	else:
+		return os.path.join(get_userconfig_dir(), "mister_viz")
+# }}}
+def get_yaml_files(yaml_basedir):# {{{
+	yaml_files = [ x for x in [ os.path.join(yaml_basedir, x) for x in [ x for x in os.listdir(yaml_basedir) if os.path.splitext(x)[1] == '.yaml' and not x.startswith('_') ] ] if os.path.isfile(x) ]
+	return yaml_files
+# }}}
+
+# Functions for dealing with "display:inline;fill:#4a4a4a;stroke:#848484"-style
+# sub-attributes in SVG files.
 def xmlattrib_to_dict(attrib):# {{{
+	"""
+	Converts a string containing XML subattributes into a dict.
+	"""
 	if len(attrib) == 0:
 		return {}
 	return dict([ x.split(':', 1) for x in attrib.split(';') ])
 # }}}
 def dict_to_xmlattrib(d):# {{{
+	"""
+	Converts a dict of string key-value pairs into an sub-attribute string.
+	"""
 	return ';'.join([ f"{key}:{value}" for key, value in d.items() ])
 # }}}
 def get_xmlsubattrib(tag, key, subkey):# {{{
+	"""
+	Given lxml element `tag`, attribute name `key`, and sub-attribute name `subkey`,
+	retrieves said sub attribute from the key attribute in tag.  If said sub-attribute is
+	not defined, or the entire attribute doesn't exist, returns None.
+	"""
 	if key not in tag.attrib:
 		return None
 	d = xmlattrib_to_dict(tag.attrib[key])
@@ -51,6 +75,10 @@ def get_xmlsubattrib(tag, key, subkey):# {{{
 	return d[subkey]
 # }}}
 def set_xmlsubattrib(tag, key, subkey, value):# {{{
+	"""
+	adds or modifies sub-attribute `subkey` in attribute `key` of lmxl element `tag`,
+	setting it's value to `value`.
+	"""
 	if key not in tag.attrib:
 		d = {}
 	else:
@@ -97,7 +125,7 @@ def walk(tree):# {{{
 		ret.extend(walk(elem))
 	return ret
 # }}}
-def mangle(tree, state, debug=False):# {{{
+def old_mangle(tree, state, debug=False):# {{{
 	"""
 	Steps recursively through the xml tree and inspects the "g" elements, aka layers.
 
@@ -110,7 +138,7 @@ def mangle(tree, state, debug=False):# {{{
 	If the g element doesn't contain a data-state attribute, it's checked to see if it has
 	a style attrib. A style of 'display:none' indicates that this was a layer that started
 	out hidden, so we just delete it.
-	A style of 'display:inline' is handled differently depending on wheter the state parameter
+	A style of 'display:inline' is handled differently depending on whether the state parameter
 	is None or not. If state is None, it means we're processing the background SVG, so the
 	element gets left as-is.  If state is defined, then we're processing a control element,
 	so we set the style to 'display:none'. (After we finish this pass, we'll step through
@@ -131,16 +159,71 @@ def mangle(tree, state, debug=False):# {{{
 						if parent_display_val == 'none':
 							set_xmlsubattrib(parent, 'style', 'display', 'inline')
 						parent = parent.getparent()
-				else:
-					elem.getparent().remove(elem)
-					continue
-			elif state is not None:
-				if display_val == 'none':
-					elem.getparent().remove(elem)
-				else:
-					set_xmlsubattrib(elem, 'style', 'display', 'none')
+				#else:
+				#	elem.getparent().remove(elem)
+				#	continue
+			#elif state is not None:
+			#	if display_val == 'none':
+			#		elem.getparent().remove(elem)
+			#	else:
+			#		set_xmlsubattrib(elem, 'style', 'display', 'none')
 		mangle(elem, state)
 # }}}
+
+def mangle(tree, state, debug=False):# {{{
+	"""
+	Newer, kinder, gentler mangle.
+
+	Find all "g" elements. Add each one that has a 'data-state' attribute to a dict that's keyed
+	to the data-state value.
+
+	Set all data-state defined g elements' style attrib to "display:none".
+
+	If state is None, we're processing the background SVG, and are finished.
+
+	Otherwise, the g element that has a data-state attribute which matches state is our key.
+	Inspect all g elements: if it is a descendent of our key, leave it alone. Otherwise,
+	if it has a style of "display:inline", change it to "display:none".
+
+	Finally, starting from our key element, walk upwards:
+	  Set current element's style to "display:inline".
+	  If this isn't the root level, set any other sibling element's style to "display:none"
+	"""
+	groups = tree.findall(f".//{SVG_PREFIX}g")
+	state_elems = {}
+	for g in groups:
+		if 'data-state' in g.attrib:
+			state_elems[g.attrib['data-state']] = g
+
+	for elem in state_elems.values():
+		set_xmlsubattrib(elem, "style", "display", "none")
+
+	if state is not None and state in state_elems:
+		key_elem = state_elems[state]
+		for g in groups:
+			display_val = get_xmlsubattrib(g, 'style', 'display')
+			is_descendant = False
+			p = g
+			while p is not None:
+				if p == key_elem:
+					is_descendant = True
+					break
+				p = p.getparent()
+			if not is_descendant:
+				set_xmlsubattrib(g, "style", "display", "none")
+		set_xmlsubattrib(key_elem, "style", "display", "inline")
+		p = key_elem.getparent()
+		golden_child = key_elem
+		while p is not None:
+			if p.getparent() is not None:
+				for child in p.getchildren():
+					if child != golden_child:
+						set_xmlsubattrib(child, "style", "display", "none")
+			set_xmlsubattrib(p, "style", "display", "inline")
+			golden_child = p
+			p = p.getparent()
+# }}}
+
 
 def devastate(tree, debug=False):# {{{
 	"""
@@ -158,7 +241,7 @@ def devastate(tree, debug=False):# {{{
 		devastate(elem)
 # }}}
 
-MISTER_STRUCT = "<BBHHHHi"
+MISTER_STRUCT = "<BBHHHHiII"
 MISTER_STRUCT_SIZE = struct.calcsize(MISTER_STRUCT)
 SVG_PREFIX = '{http://www.w3.org/2000/svg}'
 DUMP_RENDERS = False
@@ -306,6 +389,7 @@ class ControllerResources:# {{{
 		self.config = yaml.load(self.base_yaml, Loader=yaml.Loader)
 		svg_filename = os.path.join(self.base_dir, f"{self.config['svg']}")
 		self.base_svg  = open(svg_filename, "rb").read()
+		self.connected = False
 
 		c = self.config
 		self.buttons = {}
@@ -358,6 +442,9 @@ class proppadict(dict):# {{{
 		return proppadict(self.items())
 # }}}
 def scaler_queue_payload_to_pixbuf(payload):# {{{
+	"""
+	parses a queue item for the scaler, returning the resultant pixbuf.
+	"""
 	ret = proppadict()
 	ret.key, img_packet, ret.factor = payload
 	img_bytes, ret.width, ret.height, ret.x_offset, ret.y_offset = img_packet
@@ -372,54 +459,77 @@ def autocrop(pil_img):# {{{
 	Takes an RGBA PIL image, crops out all of the transparent bits,
 	and returns the cropped image along with its x and y offset.
 	"""
+	#print(f"cropping image with dimensions {pil_img.width}, {pil_img.height}")
 	# Crop left hand side
 	x_offset = 0
 	img = pil_img
 	while x_offset < img.width:
-		img_slice = img.crop((x_offset, 0, x_offset + 1, img.height))
-		img_slice_bytes = img_slice.tobytes()
-		slice_height = img_slice.height * 4
-		if sum([ img_slice_bytes[x] for x in range(3, slice_height, 4) ]) == 0:
-			x_offset += 1
-		else:
+		try:
+			img_slice = img.crop((x_offset, 0, x_offset + 1, img.height))
+			img_slice_bytes = img_slice.tobytes()
+			slice_height = img_slice.height * 4
+			if sum([ img_slice_bytes[x] for x in range(3, slice_height, 4) ]) == 0:
+				x_offset += 1
+			else:
+				break
+		except SystemError:
+			print("SystemError cropping left")
 			break
 	# Crop top side
 	img = img.crop((x_offset, 0, img.width, img.height))
 	y_offset = 0
 	while y_offset < img.height:
-		img_slice = img.crop((0, y_offset, img.width, y_offset + 1))
-		img_slice_bytes = img_slice.tobytes()
-		slice_width = img_slice.width * 4
-		if sum([ img_slice_bytes[x] for x in range(3, slice_width, 4) ]) == 0:
-			y_offset += 1
-		else:
+		try:
+			img_slice = img.crop((0, y_offset, img.width, y_offset + 1))
+			img_slice_bytes = img_slice.tobytes()
+			slice_width = img_slice.width * 4
+			if sum([ img_slice_bytes[x] for x in range(3, slice_width, 4) ]) == 0:
+				y_offset += 1
+			else:
+				break
+		except SystemError:
+			print("SystemError cropping top")
 			break
 	# Crop right hand side
 	img = img.crop((0, y_offset, img.width, img.height))
 	right_offset = img.width
 	while right_offset > 0:
-		img_slice = img.crop((right_offset - 1, 0, right_offset, img.height))
-		img_slice_bytes = img_slice.tobytes()
-		slice_height = img_slice.height * 4
-		if sum([ img_slice_bytes[x] for x in range(3, slice_height, 4) ]) == 0:
-			right_offset -= 1
-		else:
+		try:
+			img_slice = img.crop((right_offset - 1, 0, right_offset, img.height))
+			img_slice_bytes = img_slice.tobytes()
+			slice_height = img_slice.height * 4
+			if sum([ img_slice_bytes[x] for x in range(3, slice_height, 4) ]) == 0:
+				right_offset -= 1
+			else:
+				break
+		except SystemError:
+			print("SystemError cropping right")
 			break
 	# Crop bottom
 	img = img.crop((0, 0, right_offset, img.height))
 	bottom_offset = img.height
 	while bottom_offset > 0:
-		img_slice = img.crop((0, bottom_offset - 1, img.width, bottom_offset))
-		img_slice_bytes = img_slice.tobytes()
-		slice_width = img_slice.width * 4
-		if sum([ img_slice_bytes[x] for x in range(3, slice_width, 4) ]) == 0:
-			bottom_offset -= 1
-		else:
+		try:
+			img_slice = img.crop((0, bottom_offset - 1, img.width, bottom_offset))
+			img_slice_bytes = img_slice.tobytes()
+			slice_width = img_slice.width * 4
+			if sum([ img_slice_bytes[x] for x in range(3, slice_width, 4) ]) == 0:
+				bottom_offset -= 1
+			else:
+				break
+		except SystemError:
+			print("SystemError cropping bottom")
 			break
 	img = img.crop((0, 0, img.width, bottom_offset))
 	return (img, x_offset, y_offset)
 # }}}
 class MultiprocSvgScaler(GObject.GObject):# {{{
+	"""
+	A GObject which farms out the tasks of taking SVGs, scaling them, and converting them to
+	pixbufs to one or more scaler_process_func processes.
+
+	SVGs are fed in via the `scale_svg()` method, and are returned via the `result` signal.
+	"""
 	__gsignals__ = {
 		"result": (GObject.SignalFlags.RUN_FIRST, None, (GObject.TYPE_PYOBJECT,)),
 	}
@@ -433,6 +543,8 @@ class MultiprocSvgScaler(GObject.GObject):# {{{
 			proc_dict = {}
 			procargs = [self.inq, self.outq]
 			if sys.platform != "win32":
+				# If this is an OS that has proper functioning pipes, use pipe objects
+				# attached to each process for detecting completed queue items.
 				proc_dict['pipe'], pipe_sink = multiprocessing.Pipe(duplex=False)
 				procargs.append(pipe_sink)
 				GLib.io_add_watch(proc_dict['pipe'].fileno(), GLib.IO_IN, self.pipe_handler)
@@ -443,6 +555,8 @@ class MultiprocSvgScaler(GObject.GObject):# {{{
 			self.processes.append(proc_dict)
 			proc.start()
 		if sys.platform == "win32":
+			# If this is windows, pipes don't work right.
+			# Set up a polling schedule to check for completed items.
 			self.last_poll_activity = time.monotonic()
 			self.queue_poller_handle = GLib.timeout_add(250, self.queue_poller)
 # }}}
@@ -497,6 +611,10 @@ class MultiprocSvgScaler(GObject.GObject):# {{{
 # }}}
 # }}}
 def scaler_process_func(inq, outq, pipe=None):# {{{
+	"""
+	This gets run as a multiprocessing.Process and does the actual scaling work for 
+	MultiprocSvgScaler
+	"""
 	while True:
 		try:
 			payload = inq.get(block=True)
@@ -519,10 +637,15 @@ def scaler_process_func(inq, outq, pipe=None):# {{{
 # }}}
 
 class MisterViz:# {{{
-	def __init__(self, hostname, do_window=True, debug=False):# {{{
+	"""
+	This is the primary piece of code for mister_viz.
+	"""
+	def __init__(self, hostname, do_window=True, debug=False, log_file=None):# {{{
 		self.hostname = hostname
 		self.sock = None
 		self.debug = debug
+		self.log_file = log_file
+		self.log_fh = None
 		self.connection_status = "disconnected"
 		self.connect_handle = None
 		self.socket_handle = None
@@ -595,6 +718,9 @@ class MisterViz:# {{{
 			hbox.pack_start(but, True, True, 0)
 			self.seen_but = but
 			self.seen_but.set_sensitive(False)
+			but = Gtk.Button(label="Quit")
+			but.connect("clicked", self.quit_button_handler)
+			hbox.pack_start(but, True, True, 0)
 			vbox.pack_start(hbox, False, False, 0)
 			self.window.add(vbox)
 			self.window.resize(640, 480)
@@ -619,6 +745,8 @@ class MisterViz:# {{{
 			self.ptt = None
 
 
+		if self.log_file is not None:
+			print(f"Logging input events to {self.log_file}")
 		controller_resources = {}
 		# Read all yaml files in the script dir except those that start with '_'
 		if sys.platform == "win32":
@@ -635,14 +763,12 @@ class MisterViz:# {{{
 			product_key.Close()
 			vendor_key.Close()
 			software_key.Close()
-			yaml_basedir = os.path.expanduser("~/mister_viz")
-		else:
-			yaml_basedir = os.path.join(get_userconfig_dir(), "mister_viz")
+		yaml_basedir = get_yaml_basedir()
 		print(f"yaml basedir: {yaml_basedir}")
 		if not os.path.exists(yaml_basedir):
 			print(f"yaml basedir not found, creating it.")
 			os.makedirs(yaml_basedir)
-		yaml_files = [ x for x in [ os.path.join(yaml_basedir, x) for x in [ x for x in os.listdir(yaml_basedir) if os.path.splitext(x)[1] == '.yaml' and not x.startswith('_') ] ] if os.path.isfile(x) ]
+		yaml_files = get_yaml_files(yaml_basedir)
 		print(f"yaml files: {yaml_files}")
 		if len(yaml_files) == 0:
 			print(f"No YAML files found in {yaml_basedir}! Put some YAML and SVG files in there and try running me again.")
@@ -708,6 +834,9 @@ class MisterViz:# {{{
 			self.seen_window = MisterSeenEventsWindow(self)
 			self.seen_window.connect("destroy", self.window_destroy_handler)
 	# }}}
+	def quit_button_handler(self, widget):# {{{
+		self.shutdown()
+	# }}}
 	def connect_button_handler(self, widget):# {{{
 		self.hostname = self.hostname_entry.get_text()
 		print(f"connection status: {self.connection_status}")
@@ -722,6 +851,7 @@ class MisterViz:# {{{
 					self.windows[key].destroy()
 # }}}
 	def disconnect(self, reconnect=False):# {{{
+		local_timestamp = time.time()
 		# Tear down the socket
 		if self.sock is not None:
 			self.sock.close()
@@ -733,6 +863,11 @@ class MisterViz:# {{{
 		# Reset button state on any open viz windows
 		for win in self.windows.values():
 			win.reset()
+		# Indicate in the logfile that a reset occurred.
+		if self.log_file is not None:
+			if self.log_fh is None:
+				self.log_fh = open(self.log_file, "a")
+			print(f"disconnected {local_timestamp}", file=self.log_fh)
 		# Update connect button and hostname entrybox
 		if self.window is not None:
 			if not reconnect:
@@ -747,6 +882,9 @@ class MisterViz:# {{{
 			self.keepalive_state  = None
 		if not reconnect:
 			self.connection_status = "disconnected"
+			if self.log_fh is not None:
+				self.log_fh.close()
+				self.log_fh = None
 		else:
 			self.connection_status = "connecting"
 			if self.connect_handle is not None:
@@ -775,7 +913,12 @@ class MisterViz:# {{{
 			sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
 			print("Connecting...")
 			sock.connect((self.hostname, 22101))
+			local_timestamp = time.time()
 			print("Connected!")
+			if self.log_file is not None:
+				if self.log_fh is None:
+					self.log_fh = open(self.log_file, "a")
+				print(f"connected {local_timestamp}", file=self.log_fh)
 			if self.window is not None:
 				self.connect_button.set_label("Disconnect")
 			self.connection_status = "connected"
@@ -815,6 +958,7 @@ class MisterViz:# {{{
 	# }}}
 	def socket_handler(self, fd, flags):# {{{
 		try:
+			local_timestamp = time.time()
 			# Handle incoming data packet
 			if flags & GLib.IO_IN:
 				try:
@@ -852,8 +996,13 @@ class MisterViz:# {{{
 				player_id = vals[1]
 				vid = vals[2]
 				pid = vals[3]
-				key = f"{vid:04x}:{pid:04x}"
-				event_vals = [0, 0] + list(vals[4:])
+				vid_text = f"{vid:04x}"
+				pid_text = f"{pid:04x}"
+				key = f"{vid_text}:{pid_text}"
+				tv_sec = vals[7]
+				tv_usec = vals[8]
+				timestamp = tv_sec + (tv_usec / 1000000)
+				event_vals = [tv_sec, tv_usec] + list(vals[4:7])
 				event = evdev_categorize(evdev_InputEvent(*event_vals))
 				superevent = event
 				if hasattr(event, 'event'):
@@ -861,12 +1010,19 @@ class MisterViz:# {{{
 				print_event = True
 				if ecodes.EV[event.type] == 'EV_SYN':
 					print_event = False
-				if ecodes.EV[event.type] == 'EV_KEY':
+				elif ecodes.EV[event.type] == 'EV_MSC':
+					print_event = False
+				elif ecodes.EV[event.type] == 'EV_KEY':
 					if event.value == 2:
 						print_event = False
 				if print_event:
 					print(superevent)
-					print(f"  input {inputno} player {player_id} {vid:04x}:{pid:04x}: {event}")
+					print(f"  input {timestamp} {inputno} player {player_id} {vid_text}:{pid_text}: {event}")
+				if self.log_file is not None:
+					if self.log_fh is None:
+						self.log_fh = open(self.log_file, "a")
+					print(",".join([ str(x) for x in [local_timestamp, tv_sec, tv_usec, inputno, player_id, vid_text, pid_text, event.type, event.code, event.value] ]), file=self.log_fh)
+
 				if key in self.windows:
 					win = self.windows[key]
 					ev_type = ecodes.EV[event.type]
@@ -949,6 +1105,7 @@ class MisterViz:# {{{
 			self.shutdown()
 # }}}
 	def shutdown(self):# {{{
+		self.disconnect()
 		self.scaler.shutdown()
 		for proc in self.procs:
 			if isinstance(proc, subprocess.Popen):
@@ -977,6 +1134,152 @@ class MisterViz:# {{{
 		return False
 	# }}}
 # }}}
+def svg_scale_to_pixbuf(svg, factor):# {{{
+	png_bytes = cairosvg.svg2png(svg, scale=factor)
+	fobj = io.BytesIO(png_bytes)
+	img = PIL.Image.open(fobj)
+	if img.mode != "RGBA":
+		img = img.convert(mode="RGBA")
+	cropped_img, x_offset, y_offset = autocrop(img)
+	cropped_img_bytes = cropped_img.tobytes()
+	pixbuf = GdkPixbuf.Pixbuf.new_from_bytes(GLib.Bytes(cropped_img_bytes), GdkPixbuf.Colorspace.RGB, True, 8, cropped_img.width, cropped_img.height, cropped_img.width * 4)
+	ret = proppadict()
+	ret.pixbuf = pixbuf
+	ret.width = cropped_img.width
+	ret.height = cropped_img.height
+	ret.x_offset = x_offset
+	ret.y_offset = y_offset
+	return ret
+# }}}
+class MisterVizRenderer:# {{{
+	def __init__(self, controller_resource, width=None):# {{{
+		self.res = controller_resource
+		self.pixbufs = {}
+		self.event_queue = []
+		if width is None:
+			self.scalefactor = 1.0
+		else:
+			# Perform resize on None for scalefactor 1.0 to find native dimensions
+			print("Rendering initial", file=sys.stderr)
+			native = svg_scale_to_pixbuf(self.res.svgs[None], 1.0)
+			# Determine scalefactor based on requested width
+			new_dims = resize_aspect(native.width, native.height, width=width)
+			self.scalefactor = new_dims[2]
+		
+		# Scale pixbufs
+		for key in self.res.svgs:
+			print(f"Rendering {key}", file=sys.stderr)
+			pixbuf = svg_scale_to_pixbuf(self.res.svgs[key], self.scalefactor)
+			self.pixbufs[key] = [pixbuf.pixbuf, pixbuf.x_offset, pixbuf.y_offset]
+	# }}}
+	def apply_event_queue(self):# {{{
+		if not self.res.connected:
+			self.res.connected = True
+		for event in self.event_queue:
+			ev_type = ecodes.EV[event.type]
+			if ev_type == 'EV_KEY':
+				if event.code in ecodes.KEY:
+					ev_code = ecodes.KEY[event.code]
+				else:
+					ev_code = ecodes.BTN[event.code]
+				if isinstance(ev_code, str):
+					ev_code = [ev_code]
+				for code in ev_code:
+					if code in self.res.buttons:
+						#print(f"code {code} value {event.value}")
+						self.res.buttons[code].set_value(event.value)
+						break
+			elif ev_type == 'EV_ABS':
+				ev_code = ecodes.ABS[event.code]
+				if ev_code in self.res.axes:
+					self.res.axes[ev_code].set_value(event.value)
+		self.event_queue = []
+	# }}}
+	def reset(self):# {{{
+		try:
+			self.res.connected = False
+			for widget in list(self.res.buttons.values()) + list(self.res.axes.values()) + list(self.res.sticks.values()):
+				widget.reset()
+		except Exception as e:
+			for line in traceback.format_exc().splitlines():
+				print(f"exception: {line}")
+	# }}}
+	@property # width{{{
+	def width(self):
+		return self.pixbufs[None][0].get_width()
+	# }}}
+	@property # height{{{
+	def height(self):
+		return self.pixbufs[None][0].get_height()
+	# }}}
+	def push_event(self, event):# {{{
+		ev_type = ecodes.EV[event.type]
+		if ev_type == 'EV_SYN':
+			self.apply_event_queue()
+		else:
+			self.event_queue.append(event)
+	# }}}
+	def render(self):# {{{
+		surface = cairo.ImageSurface(cairo.FORMAT_RGB24, self.pixbufs[None][0].get_width(), self.pixbufs[None][0].get_height())
+		cr = cairo.Context(surface)
+		cr.set_source_rgba(1, 0, 1, 1)
+		cr.paint()
+		Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[None][0], self.pixbufs[None][1], self.pixbufs[None][2])
+		cr.paint()
+		allstate = set()
+		for x in self.res.buttons.values():
+			allstate |= x.get_state()
+		for x in self.res.axes.values():
+			allstate |= x.get_state()
+
+		for state in allstate:
+			if state in self.res.sticks:
+				continue
+			if state in self.pixbufs:
+				Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[state][0], self.pixbufs[state][1], self.pixbufs[state][2])
+				cr.paint()
+
+		for k, stick in self.res.sticks.items():
+			if stick.has_button:
+				if k in allstate:
+					pixkey = f"{k} active"
+				else:
+					pixkey = f"{k} idle"
+			else:
+				pixkey = k
+			if pixkey in self.pixbufs:
+				offsets = {
+					'x': 0,
+					'y': 0,
+				}
+				for off in offsets:
+					axis = getattr(stick, f"{off}_axis")
+					if axis is not None and axis.value is not None:
+						offsets[off] = translate_constrainedint(axis.value, axis.minval, axis.maxval, axis.minpos, axis.maxpos)
+				if stick.x_axis is not None and stick.y_axis is not None:
+					circularize = True
+					for attr in ['minval', 'maxval', 'minpos', 'maxpos']:
+						if getattr(stick.x_axis, attr) != getattr(stick.y_axis, attr):
+							circularize= False
+							break
+					if circularize:
+						maxrange = stick.x_axis.maxpos - stick.x_axis.minpos
+						angle = math.atan2(offsets['y'], offsets['x'])
+						magnitude = math.sqrt(offsets['x'] * offsets['x'] + offsets['y'] * offsets['y'])
+						if magnitude > (maxrange // 2):
+							magnitude = maxrange // 2
+						offsets['x'] = magnitude * math.cos(angle)
+						offsets['y'] = magnitude * math.sin(angle)
+
+				Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[pixkey][0], (offsets['x'] * self.scalefactor) + self.pixbufs[pixkey][1], (offsets['y'] * self.scalefactor) + self.pixbufs[pixkey][2])
+				cr.paint()
+		return surface
+		# }}}
+# }}}
+
+
+		
+		
 class MisterVizWindow(Gtk.Window):# {{{
 	def __init__(self, controller_resource, parent):# {{{
 		super().__init__()
@@ -991,16 +1294,22 @@ class MisterVizWindow(Gtk.Window):# {{{
 			self.scalefactor = 1.0
 		#self.pixbufs = dict([ [x, None] for x in self.res.svgs.keys() ])
 		self.pixbufs = {}
+		# Resize_handler_id and resize_timer_id store GLib sources related to window resize operations.
 		self.resize_handler_id = None
+		self.resize_timer_id = None
+		# Submit an SVG resize request to the scaler to find our initial pixbuf dimensions.
 		self.parent.scaler.scale_svg([self.res.vid, self.res.pid, None], self.res.svgs[None], 1.0)
 		self.inflight = True
 
 		#self.viz_width = self.pixbufs[None].get_width()
 		#self.viz_height = self.pixbufs[None].get_height()
+		# viz_width and viz_height store the "native" width and height for the visualization pixbufs
+		# at scalefactor 1.0. They are populated asynchronously in pixbuf_receive_handler.
 		self.viz_width = None
 		self.viz_height = None
+		# win_dims stores the last known dimensions for the actual window, so we can
+		# determine if pixbuf resizing needs to happen.
 		self.win_dims = None
-		self.resize_timer_id = None
 		self.darea = Gtk.DrawingArea()
 		self.darea.connect("draw", self.draw_handler)
 		self.add(self.darea)
@@ -1014,10 +1323,17 @@ class MisterVizWindow(Gtk.Window):# {{{
 	def pixbuf_receive_handler(self, key, pixbuf, x_offset, y_offset, scalefactor):# {{{
 		print(f"Receiving pixbuf for state: {key} (scale factor {scalefactor})")
 		if key is None:
+			# A key of None means we're receiving a base pixbuf
 			if self.viz_width is None and self.viz_height is None:
+				# If our viz_width and viz_height values are None, we're receiving our first pixbuf,
+				# which is of scalefactor 1.0. We use this pixbuf's dimensions to set viz_width and viz_height.
 				self.viz_width = pixbuf.get_width()
 				self.viz_height = pixbuf.get_height()
+				print(f"Setting viz dimensions to {self.viz_width}x{self.viz_height}")
 				if self.scalefactor != 1.0:
+					# If our actual desired scalefactor isn't 1.0, resubmit a scale request for the proper
+					# desired scalefactor.
+					print(f"Resubmitting SVG for scalefactor {self.scalefactor}")
 					self.parent.scaler.scale_svg([self.res.vid, self.res.pid, None], self.res.svgs[None], self.scalefactor)
 					return
 			self.pixbufs = {}
@@ -1073,6 +1389,7 @@ class MisterVizWindow(Gtk.Window):# {{{
 			self.parent.scaler.scale_svg([self.res.vid, self.res.pid, next_pixbuf_key], self.res.svgs[next_pixbuf_key], self.scalefactor)
 # }}}
 	def reset(self):# {{{
+		self.res.connected = False
 		try:
 			for widget in list(self.res.buttons.values()) + list(self.res.axes.values()) + list(self.res.sticks.values()):
 				widget.reset()
@@ -1133,7 +1450,7 @@ class MisterVizWindow(Gtk.Window):# {{{
 		if self.parent.debug:
 			print("draw_handler begin")
 		try:
-			cr.set_source_rgba(0, 0, 0, 1)
+			cr.set_source_rgba(1, 0, 1, 1)
 			cr.paint()
 			if None not in self.pixbufs:
 				return
@@ -1354,8 +1671,15 @@ if __name__ == '__main__':
 		parser.add_argument("hostname", default=None, nargs="?")
 		parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)
 		parser.add_argument("-n", "--no-window", action="store_false", dest="do_window", default=True, help="Don't create a main window")
+		parser.add_argument("-l", "--log-file", action="store", dest="log_file", default=None, help="Write events to log file LOG_FILE. Use magic name \":auto:\" to auto-create based on time and date.")
 		args = parser.parse_args()
-		app = MisterViz(args.hostname, debug=args.debug, do_window=args.do_window)
+		if args.log_file == ':auto:':
+			nao = datetime.datetime.now()
+			naostr = nao.strftime("%F %T").replace(":", "_")
+			log_file = f"mister_viz__{naostr}.log"
+		else:
+			log_file = args.log_file
+		app = MisterViz(args.hostname, debug=args.debug, do_window=args.do_window, log_file=log_file)
 	else:
 		app = MisterViz(None)
 

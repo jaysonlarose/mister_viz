@@ -34,6 +34,7 @@ These were the commands that I ran to bring the MSYS2 python environment up-to-s
 pacman -S --needed base-devel mingw-w64-x86_64-toolchain
 pacman -S mingw-w64-x86_64-python-pip
 pacman -S mingw-w64-x86_64-python-pillow
+python3 -m pip install wheel
 python3 -m pip install cairosvg
 pacman -S mingw-w64-x86_64-python-gobject
 pacman -S mingw-w64-x86_64-python3-gobject
@@ -42,6 +43,8 @@ pacman -S mingw-w64-x86_64-python-yaml
 pacman -S mingw-w64-x86_64-python-lxml
 pacman -S mingw-w64-x86_64-python-psutil
 ```
+
+(maybe add `pacman -S python-devel` to this list?)
 
 I decided that numpy has a very large install footprint, and I'm actually using it for very little, so I rewrote the things that depended on it. Even so, here's how I installed it just in case it turns out to be necessary:
 
