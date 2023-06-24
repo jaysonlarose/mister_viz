@@ -1,6 +1,6 @@
-name: 8Bitdo M30
+name: 8Bitdo M30 USB
 vid: 0x2dc8
-pid: 0x0651
+pid: 0x5006
 svg: m30.svg
 primary: true
 ptt: BTN_TR2

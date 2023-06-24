@@ -6,7 +6,8 @@
    version="1.1"
    id="svg5"
    inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
-   sodipodi:docname="keyboard_mini.svg"
+   sodipodi:docname="keyboard_mini_orig.svg"
+   data-name="Generic Mini Keyboard"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -22,7 +23,7 @@
      inkscape:document-units="px"
      showgrid="true"
      inkscape:zoom="2.957632"
-     inkscape:cx="230.42082"
+     inkscape:cx="196.77904"
      inkscape:cy="97.206143"
      inkscape:window-width="3840"
      inkscape:window-height="2089"
@@ -1517,7 +1518,8 @@
        id="g1001"
        data-key="Z"
        style="display:none"
-       data-state="KEY_Z">
+       data-state="KEY_Z"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1000"
@@ -1542,7 +1544,8 @@
        id="g1002"
        data-key="LEFTMETA"
        style="display:none"
-       data-state="KEY_LEFTMETA">
+       data-state="KEY_LEFTMETA"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1001"
@@ -1556,7 +1559,8 @@
        id="g1003"
        data-key="X"
        style="display:none"
-       data-state="KEY_X">
+       data-state="KEY_X"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1002"
@@ -1581,7 +1585,8 @@
        id="g1004"
        data-key="C"
        style="display:none"
-       data-state="KEY_C">
+       data-state="KEY_C"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1003"
@@ -1606,7 +1611,8 @@
        id="g1005"
        data-key="V"
        style="display:none"
-       data-state="KEY_V">
+       data-state="KEY_V"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1004"
@@ -1631,7 +1637,8 @@
        id="g1006"
        data-key="B"
        style="display:none"
-       data-state="KEY_B">
+       data-state="KEY_B"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1005"
@@ -1656,7 +1663,8 @@
        id="g1007"
        data-key="N"
        style="display:none"
-       data-state="KEY_N">
+       data-state="KEY_N"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1006"
@@ -1681,7 +1689,8 @@
        id="g1008"
        data-key="M"
        style="display:none"
-       data-state="KEY_M">
+       data-state="KEY_M"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1007"
@@ -1706,7 +1715,8 @@
        id="g1009"
        data-key="COMMA"
        style="display:none"
-       data-state="KEY_COMMA">
+       data-state="KEY_COMMA"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1008"
@@ -1731,7 +1741,8 @@
        id="g1010"
        data-key="DOT"
        style="display:none"
-       data-state="KEY_DOT">
+       data-state="KEY_DOT"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1009"
@@ -1756,7 +1767,8 @@
        id="g1011"
        data-key="SLASH"
        style="display:none"
-       data-state="KEY_SLASH">
+       data-state="KEY_SLASH"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1010"
@@ -1781,7 +1793,8 @@
        id="g1012"
        data-key="A"
        style="display:none"
-       data-state="KEY_A">
+       data-state="KEY_A"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1011"
@@ -1806,7 +1819,8 @@
        id="g1013"
        data-key="S"
        style="display:none"
-       data-state="KEY_S">
+       data-state="KEY_S"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1012"
@@ -1831,7 +1845,8 @@
        id="g1014"
        data-key="D"
        style="display:none"
-       data-state="KEY_D">
+       data-state="KEY_D"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1013"
@@ -1856,7 +1871,8 @@
        id="g1015"
        data-key="F"
        style="display:none"
-       data-state="KEY_F">
+       data-state="KEY_F"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1014"
@@ -1881,7 +1897,8 @@
        id="g1016"
        data-key="G"
        style="display:none"
-       data-state="KEY_G">
+       data-state="KEY_G"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1015"
@@ -1906,7 +1923,8 @@
        id="g1017"
        data-key="H"
        style="display:none"
-       data-state="KEY_H">
+       data-state="KEY_H"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1016"
@@ -1931,7 +1949,8 @@
        id="g1018"
        data-key="J"
        style="display:none"
-       data-state="KEY_J">
+       data-state="KEY_J"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1017"
@@ -1956,7 +1975,8 @@
        id="g1019"
        data-key="K"
        style="display:none"
-       data-state="KEY_K">
+       data-state="KEY_K"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1018"
@@ -1981,7 +2001,8 @@
        id="g1020"
        data-key="L"
        style="display:none"
-       data-state="KEY_L">
+       data-state="KEY_L"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1019"
@@ -2006,7 +2027,8 @@
        id="g1021"
        data-key="SEMICOLON"
        style="display:none"
-       data-state="KEY_SEMICOLON">
+       data-state="KEY_SEMICOLON"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1020"
@@ -2031,7 +2053,8 @@
        id="g1022"
        data-key="APOSTROPHE"
        style="display:none"
-       data-state="KEY_APOSTROPHE">
+       data-state="KEY_APOSTROPHE"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1021"
@@ -2056,7 +2079,8 @@
        id="g1023"
        data-key="Q"
        style="display:none"
-       data-state="KEY_Q">
+       data-state="KEY_Q"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1022"
@@ -2081,7 +2105,8 @@
        id="g1024"
        data-key="W"
        style="display:none"
-       data-state="KEY_W">
+       data-state="KEY_W"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1023"
@@ -2106,7 +2131,8 @@
        id="g1025"
        data-key="E"
        style="display:none"
-       data-state="KEY_E">
+       data-state="KEY_E"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1024"
@@ -2131,7 +2157,8 @@
        id="g1026"
        data-key="R"
        style="display:none"
-       data-state="KEY_R">
+       data-state="KEY_R"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1025"
@@ -2156,7 +2183,8 @@
        id="g1027"
        data-key="T"
        style="display:none"
-       data-state="KEY_T">
+       data-state="KEY_T"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1026"
@@ -2181,7 +2209,8 @@
        id="g1028"
        data-key="Y"
        style="display:none"
-       data-state="KEY_Y">
+       data-state="KEY_Y"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1027"
@@ -2206,7 +2235,8 @@
        id="g1029"
        data-key="U"
        style="display:none"
-       data-state="KEY_U">
+       data-state="KEY_U"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1028"
@@ -2231,7 +2261,8 @@
        id="g1030"
        data-key="I"
        style="display:none"
-       data-state="KEY_I">
+       data-state="KEY_I"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1029"
@@ -2256,7 +2287,8 @@
        id="g1031"
        data-key="O"
        style="display:none"
-       data-state="KEY_O">
+       data-state="KEY_O"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1030"
@@ -2281,7 +2313,8 @@
        id="g1032"
        data-key="P"
        style="display:none"
-       data-state="KEY_P">
+       data-state="KEY_P"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1031"
@@ -2306,7 +2339,8 @@
        id="g1033"
        data-key="LEFTBRACE"
        style="display:none"
-       data-state="KEY_LEFTBRACE">
+       data-state="KEY_LEFTBRACE"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1032"
@@ -2331,7 +2365,8 @@
        id="g1034"
        data-key="RIGHTBRACE"
        style="display:none"
-       data-state="KEY_RIGHTBRACE">
+       data-state="KEY_RIGHTBRACE"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1033"
@@ -2356,7 +2391,8 @@
        id="g1035"
        data-key="BACKSLASH"
        style="display:none"
-       data-state="KEY_BACKSLASH">
+       data-state="KEY_BACKSLASH"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1034"
@@ -2381,7 +2417,8 @@
        id="g1036"
        data-key="GRAVE"
        style="display:none"
-       data-state="KEY_GRAVE">
+       data-state="KEY_GRAVE"
+       data-type="button">
       <g
          id="g1037">
         <rect
@@ -2409,7 +2446,8 @@
        id="g1038"
        data-key="1"
        style="display:none"
-       data-state="KEY_1">
+       data-state="KEY_1"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1036"
@@ -2434,7 +2472,8 @@
        id="g1039"
        data-key="2"
        style="display:none"
-       data-state="KEY_2">
+       data-state="KEY_2"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1037"
@@ -2459,7 +2498,8 @@
        id="g1040"
        data-key="3"
        style="display:none"
-       data-state="KEY_3">
+       data-state="KEY_3"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1038"
@@ -2484,7 +2524,8 @@
        id="g1041"
        data-key="4"
        style="display:none"
-       data-state="KEY_4">
+       data-state="KEY_4"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1039"
@@ -2509,7 +2550,8 @@
        id="g1042"
        data-key="5"
        style="display:none"
-       data-state="KEY_5">
+       data-state="KEY_5"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1040"
@@ -2534,7 +2576,8 @@
        id="g1043"
        data-key="6"
        style="display:none"
-       data-state="KEY_6">
+       data-state="KEY_6"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1041"
@@ -2559,7 +2602,8 @@
        id="g1044"
        data-key="7"
        style="display:none"
-       data-state="KEY_7">
+       data-state="KEY_7"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1042"
@@ -2584,7 +2628,8 @@
        id="g1045"
        data-key="8"
        style="display:none"
-       data-state="KEY_8">
+       data-state="KEY_8"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1043"
@@ -2609,7 +2654,8 @@
        id="g1046"
        data-key="9"
        style="display:none"
-       data-state="KEY_9">
+       data-state="KEY_9"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1044"
@@ -2634,7 +2680,8 @@
        id="g1047"
        data-key="0"
        style="display:none"
-       data-state="KEY_0">
+       data-state="KEY_0"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1045"
@@ -2659,7 +2706,8 @@
        id="g1048"
        data-key="MINUS"
        style="display:none"
-       data-state="KEY_MINUS">
+       data-state="KEY_MINUS"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1046"
@@ -2684,7 +2732,8 @@
        id="g1049"
        data-key="EQUAL"
        style="display:none"
-       data-state="KEY_EQUAL">
+       data-state="KEY_EQUAL"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1047"
@@ -2709,7 +2758,8 @@
        id="g1050"
        data-key="F1"
        style="display:none"
-       data-state="KEY_F1">
+       data-state="KEY_F1"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1048"
@@ -2723,7 +2773,8 @@
        id="g1051"
        data-key="F2"
        style="display:none"
-       data-state="KEY_F2">
+       data-state="KEY_F2"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1049"
@@ -2737,7 +2788,8 @@
        id="g1052"
        data-key="F3"
        style="display:none"
-       data-state="KEY_F3">
+       data-state="KEY_F3"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1050"
@@ -2751,7 +2803,8 @@
        id="g1053"
        data-key="F4"
        style="display:none"
-       data-state="KEY_F4">
+       data-state="KEY_F4"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1051"
@@ -2765,7 +2818,8 @@
        id="g1054"
        data-key="F5"
        style="display:none"
-       data-state="KEY_F5">
+       data-state="KEY_F5"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1052"
@@ -2779,7 +2833,8 @@
        id="g1055"
        data-key="F6"
        style="display:none"
-       data-state="KEY_F6">
+       data-state="KEY_F6"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1053"
@@ -2793,7 +2848,8 @@
        id="g1056"
        data-key="F7"
        style="display:none"
-       data-state="KEY_F7">
+       data-state="KEY_F7"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1054"
@@ -2807,7 +2863,8 @@
        id="g1057"
        data-key="F8"
        style="display:none"
-       data-state="KEY_F8">
+       data-state="KEY_F8"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1055"
@@ -2821,7 +2878,8 @@
        id="g1058"
        data-key="F9"
        style="display:none"
-       data-state="KEY_F9">
+       data-state="KEY_F9"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1056"
@@ -2835,7 +2893,8 @@
        id="g1059"
        data-key="F10"
        style="display:none"
-       data-state="KEY_F10">
+       data-state="KEY_F10"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1057"
@@ -2849,7 +2908,8 @@
        id="g1060"
        data-key="F11"
        style="display:none"
-       data-state="KEY_F11">
+       data-state="KEY_F11"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1058"
@@ -2863,7 +2923,8 @@
        id="g1062"
        data-key="F12"
        style="display:none"
-       data-state="KEY_F12">
+       data-state="KEY_F12"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1059"
@@ -2877,7 +2938,8 @@
        id="g1063"
        data-key="SYSRQ"
        style="display:none"
-       data-state="KEY_SYSRQ">
+       data-state="KEY_SYSRQ"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1060"
@@ -2891,7 +2953,8 @@
        id="g1064"
        data-key="SCROLLLOCK"
        style="display:none"
-       data-state="KEY_SCROLLLOCK">
+       data-state="KEY_SCROLLLOCK"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1061"
@@ -2905,7 +2968,8 @@
        id="g1065"
        data-key="BREAK"
        style="display:none"
-       data-state="KEY_BREAK">
+       data-state="KEY_BREAK"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1062"
@@ -2919,7 +2983,8 @@
        id="g1067"
        data-key="INSERT"
        style="display:none"
-       data-state="KEY_INSERT">
+       data-state="KEY_INSERT"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1063"
@@ -2933,7 +2998,8 @@
        id="g1068"
        data-key="HOME"
        style="display:none"
-       data-state="KEY_HOME">
+       data-state="KEY_HOME"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1064"
@@ -2947,7 +3013,8 @@
        id="g1069"
        data-key="PAGEUP"
        style="display:none"
-       data-state="KEY_PAGEUP">
+       data-state="KEY_PAGEUP"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1065"
@@ -2961,7 +3028,8 @@
        id="g1070"
        data-key="DELETE"
        style="display:none"
-       data-state="KEY_DELETE">
+       data-state="KEY_DELETE"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1066"
@@ -2975,7 +3043,8 @@
        id="g1072"
        data-key="END"
        style="display:none"
-       data-state="KEY_END">
+       data-state="KEY_END"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1067"
@@ -2989,7 +3058,8 @@
        id="g1073"
        data-key="PAGEDOWN"
        style="display:none"
-       data-state="KEY_PAGEDOWN">
+       data-state="KEY_PAGEDOWN"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1068"
@@ -3003,7 +3073,8 @@
        id="g1074"
        data-key="NUMLOCK"
        style="display:none"
-       data-state="KEY_NUMLOCK">
+       data-state="KEY_NUMLOCK"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1069"
@@ -3017,7 +3088,8 @@
        id="g1075"
        data-key="KPSLASH"
        style="display:none"
-       data-state="KEY_KPSLASH">
+       data-state="KEY_KPSLASH"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1070"
@@ -3031,7 +3103,8 @@
        id="g1077"
        data-key="KPASTERISK"
        style="display:none"
-       data-state="KEY_KPASTERISK">
+       data-state="KEY_KPASTERISK"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1071"
@@ -3045,7 +3118,8 @@
        id="g1078"
        data-key="KP7"
        style="display:none"
-       data-state="KEY_KP7">
+       data-state="KEY_KP7"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1072"
@@ -3059,7 +3133,8 @@
        id="g1079"
        data-key="KP8"
        style="display:none"
-       data-state="KEY_KP8">
+       data-state="KEY_KP8"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1073"
@@ -3073,7 +3148,8 @@
        id="g1080"
        data-key="KP9"
        style="display:none"
-       data-state="KEY_KP9">
+       data-state="KEY_KP9"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1074"
@@ -3087,7 +3163,8 @@
        id="g1082"
        data-key="KPMINUS"
        style="display:none"
-       data-state="KEY_KPMINUS">
+       data-state="KEY_KPMINUS"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1075"
@@ -3101,7 +3178,8 @@
        id="g1083"
        data-key="KP4"
        style="display:none"
-       data-state="KEY_KP4">
+       data-state="KEY_KP4"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1076"
@@ -3115,7 +3193,8 @@
        id="g1084"
        data-key="KP5"
        style="display:none"
-       data-state="KEY_KP5">
+       data-state="KEY_KP5"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1077"
@@ -3129,7 +3208,8 @@
        id="g1085"
        data-key="KP6"
        style="display:none"
-       data-state="KEY_KP6">
+       data-state="KEY_KP6"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1078"
@@ -3143,7 +3223,8 @@
        id="g1087"
        data-key="KP1"
        style="display:none"
-       data-state="KEY_KP1">
+       data-state="KEY_KP1"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1079"
@@ -3157,7 +3238,8 @@
        id="g1088"
        data-key="KP2"
        style="display:none"
-       data-state="KEY_KP2">
+       data-state="KEY_KP2"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1080"
@@ -3171,7 +3253,8 @@
        id="g1089"
        data-key="KP3"
        style="display:none"
-       data-state="KEY_KP3">
+       data-state="KEY_KP3"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1081"
@@ -3185,7 +3268,8 @@
        id="g1090"
        data-key="KPDOT"
        style="display:none"
-       data-state="KEY_KPDOT">
+       data-state="KEY_KPDOT"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1082"
@@ -3199,7 +3283,8 @@
        id="g1091"
        data-key="LEFT"
        style="display:none"
-       data-state="KEY_LEFT">
+       data-state="KEY_LEFT"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1083"
@@ -3213,7 +3298,8 @@
        id="g1092"
        data-key="DOWN"
        style="display:none"
-       data-state="KEY_DOWN">
+       data-state="KEY_DOWN"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1084"
@@ -3227,7 +3313,8 @@
        id="g1093"
        data-key="UP"
        style="display:none"
-       data-state="KEY_UP">
+       data-state="KEY_UP"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1085"
@@ -3241,7 +3328,8 @@
        id="g1094"
        data-key="RIGHT"
        style="display:none"
-       data-state="KEY_RIGHT">
+       data-state="KEY_RIGHT"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1086"
@@ -3255,7 +3343,8 @@
        id="g1095"
        data-key="BACKSPACE"
        style="display:none"
-       data-state="KEY_BACKSPACE">
+       data-state="KEY_BACKSPACE"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1087"
@@ -3269,7 +3358,8 @@
        id="g1096"
        data-key="ENTER"
        style="display:none"
-       data-state="KEY_ENTER">
+       data-state="KEY_ENTER"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1088"
@@ -3283,7 +3373,8 @@
        id="g1097"
        data-key="RIGHTSHIFT"
        style="display:none"
-       data-state="KEY_RIGHTSHIFT">
+       data-state="KEY_RIGHTSHIFT"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1089"
@@ -3297,7 +3388,8 @@
        id="g1098"
        data-key="TAB"
        style="display:none"
-       data-state="KEY_TAB">
+       data-state="KEY_TAB"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1090"
@@ -3311,7 +3403,8 @@
        id="g1099"
        data-key="CAPSLOCK"
        style="display:none"
-       data-state="KEY_CAPSLOCK">
+       data-state="KEY_CAPSLOCK"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1091"
@@ -3325,7 +3418,8 @@
        id="g1100"
        data-key="LEFTSHIFT"
        style="display:none"
-       data-state="KEY_LEFTSHIFT">
+       data-state="KEY_LEFTSHIFT"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1092"
@@ -3339,7 +3433,8 @@
        id="g1101"
        data-key="LEFTCTRL"
        style="display:none"
-       data-state="KEY_LEFTCTRL">
+       data-state="KEY_LEFTCTRL"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1093"
@@ -3353,7 +3448,8 @@
        id="g1102"
        data-key="RIGHTCTRL"
        style="display:none"
-       data-state="KEY_RIGHTCTRL">
+       data-state="KEY_RIGHTCTRL"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1094"
@@ -3367,7 +3463,8 @@
        id="g1103"
        data-key="RIGHTALT"
        style="display:none"
-       data-state="KEY_RIGHTALT">
+       data-state="KEY_RIGHTALT"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1095"
@@ -3381,7 +3478,8 @@
        id="g1104"
        data-key="LEFTALT"
        style="display:none"
-       data-state="KEY_LEFTALT">
+       data-state="KEY_LEFTALT"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1096"
@@ -3395,7 +3493,8 @@
        id="g1105"
        data-key="SPACE"
        style="display:none"
-       data-state="KEY_SPACE">
+       data-state="KEY_SPACE"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1097"
@@ -3409,7 +3508,8 @@
        id="g1106"
        data-key="ESC"
        style="display:none"
-       data-state="KEY_ESC">
+       data-state="KEY_ESC"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1098"
@@ -3423,7 +3523,8 @@
        id="g1107"
        data-key="KPPLUS"
        style="display:none"
-       data-state="KEY_KPPLUS">
+       data-state="KEY_KPPLUS"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1099"
@@ -3437,7 +3538,8 @@
        id="g1108"
        data-key="KPENTER"
        style="display:none"
-       data-state="KEY_KPENTER">
+       data-state="KEY_KPENTER"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1100"
@@ -3451,7 +3553,8 @@
        id="g1109"
        data-key="KP0"
        style="display:none"
-       data-state="KEY_KP0">
+       data-state="KEY_KP0"
+       data-type="button">
       <rect
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.1;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
          id="rect1101"

@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!-- Created with Inkscape (http://www.inkscape.org/) -->
-
 <svg
    width="643.05768"
    height="650.1311"
@@ -9,6 +7,7 @@
    id="svg5"
    inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
    sodipodi:docname="procontroller.svg"
+   data-name="Switch Pro Controller"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -25,14 +24,14 @@
      showgrid="false"
      units="px"
      inkscape:zoom="2.1997092"
-     inkscape:cx="240.94094"
+     inkscape:cx="191.16163"
      inkscape:cy="215.25573"
      inkscape:window-width="3840"
      inkscape:window-height="2089"
      inkscape:window-x="0"
      inkscape:window-y="34"
      inkscape:window-maximized="1"
-     inkscape:current-layer="layer20"
+     inkscape:current-layer="layer23"
      inkscape:snap-bbox="true"
      inkscape:snap-bbox-midpoints="false"
      inkscape:snap-object-midpoints="true"
@@ -172,7 +171,10 @@
      id="layer21"
      inkscape:label="lstick idle"
      style="display:inline"
-     data-state="lstick idle">
+     data-state="lstick"
+     data-type="stick"
+     data-extents-x="-30 30"
+     data-extents-y="-30 30">
     <g
        id="g28526"
        transform="translate(-20.782055,33.065098)">
@@ -195,7 +197,8 @@
      id="layer22"
      inkscape:label="lstick active"
      style="display:none"
-     data-state="lstick active">
+     data-state="lstick"
+     data-type="button">
     <g
        id="g28674">
       <circle
@@ -217,7 +220,10 @@
      id="layer23"
      inkscape:label="rstick idle"
      style="display:inline"
-     data-state="rstick idle">
+     data-state="rstick"
+     data-type="stick"
+     data-extents-x="-30 30"
+     data-extents-y="-30 30">
     <g
        id="g28530"
        transform="translate(-20.782055,33.065098)">
@@ -240,7 +246,8 @@
      id="layer24"
      inkscape:label="rstick active"
      style="display:none"
-     data-state="rstick active">
+     data-state="rstick"
+     data-type="button">
     <g
        id="g28606">
       <circle
@@ -266,7 +273,8 @@
        id="layer8"
        inkscape:label="a"
        data-state="a"
-       style="display:none">
+       style="display:none"
+       data-type="button">
       <circle
          style="fill:#ff0000;stroke:#ffffff;stroke-width:0.264999;stroke-linecap:square;stop-color:#000000"
          id="path11919-2-9-7"
@@ -280,7 +288,8 @@
        id="layer9"
        inkscape:label="b"
        data-state="b"
-       style="display:none">
+       style="display:none"
+       data-type="button">
       <circle
          style="fill:#ff0000;stroke:#ffffff;stroke-width:0.264999;stroke-linecap:square;stop-color:#000000"
          id="path11919-2-8"
@@ -294,7 +303,8 @@
        id="layer10"
        inkscape:label="x"
        data-state="x"
-       style="display:none">
+       style="display:none"
+       data-type="button">
       <circle
          style="fill:#ff0000;stroke:#ffffff;stroke-width:0.264999;stroke-linecap:square;stop-color:#000000"
          id="path11919-4"
@@ -308,7 +318,8 @@
        id="layer11"
        inkscape:label="y"
        data-state="y"
-       style="display:none">
+       style="display:none"
+       data-type="button">
       <circle
          style="fill:#ff0000;stroke:#ffffff;stroke-width:0.264999;stroke-linecap:square;stop-color:#000000"
          id="path11919-2-9-1-5"
@@ -322,7 +333,8 @@
        id="layer12"
        inkscape:label="-"
        data-state="-"
-       style="display:none">
+       style="display:none"
+       data-type="button">
       <circle
          style="fill:#ff0000;stroke:#ffffff;stroke-width:0.264999;stroke-linecap:square;stop-color:#000000"
          id="path12139-1"
@@ -336,7 +348,8 @@
        id="layer13"
        inkscape:label="+"
        data-state="+"
-       style="display:none">
+       style="display:none"
+       data-type="button">
       <circle
          style="fill:#ff0000;stroke:#ffffff;stroke-width:0.264999;stroke-linecap:square;stop-color:#000000"
          id="path12139-2-9"
@@ -350,7 +363,8 @@
        id="layer14"
        inkscape:label="home"
        data-state="home"
-       style="display:none">
+       style="display:none"
+       data-type="button">
       <circle
          style="fill:#ff0000;stroke:#ffffff;stroke-width:0.264999;stroke-linecap:square;stop-color:#000000"
          id="path12139-2-7-4"
@@ -364,7 +378,8 @@
        id="layer15"
        inkscape:label="screenshot"
        data-state="screenshot"
-       style="display:none">
+       style="display:none"
+       data-type="button">
       <rect
          style="fill:#ff0000;stroke:#ffffff;stroke-width:0.264999;stroke-linecap:square;stop-color:#000000"
          id="rect12323-3"
@@ -386,7 +401,8 @@
        id="layer5"
        inkscape:label="left"
        data-state="left"
-       style="display:none">
+       style="display:none"
+       data-type="button">
       <path
          id="path14006"
          style="display:inline;fill:#ff0000;stroke:#ffffff;stroke-width:0.264999;stroke-linecap:square;stop-color:#000000"
@@ -398,7 +414,8 @@
        id="layer3"
        inkscape:label="up"
        data-state="up"
-       style="display:none">
+       style="display:none"
+       data-type="button">
       <path
          id="path14006-2"
          style="display:inline;fill:#ff0000;stroke:#ffffff;stroke-width:0.264999;stroke-linecap:square;stop-color:#000000"
@@ -410,7 +427,8 @@
        id="layer4"
        inkscape:label="down"
        data-state="down"
-       style="display:none">
+       style="display:none"
+       data-type="button">
       <path
          id="path14006-2-0"
          style="display:inline;fill:#ff0000;stroke:#ffffff;stroke-width:0.264999;stroke-linecap:square;stop-color:#000000"
@@ -422,7 +440,8 @@
        id="layer6"
        inkscape:label="right"
        data-state="right"
-       style="display:none">
+       style="display:none"
+       data-type="button">
       <path
          id="path14006-9"
          style="display:inline;fill:#ff0000;stroke:#ffffff;stroke-width:0.264999;stroke-linecap:square;stop-color:#000000"
@@ -439,7 +458,8 @@
        id="layer17"
        inkscape:label="l"
        data-state="l"
-       style="display:none">
+       style="display:none"
+       data-type="button">
       <path
          id="path9090-0"
          style="fill:#ff0000;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
@@ -457,7 +477,8 @@
        id="layer18"
        inkscape:label="r"
        data-state="r"
-       style="display:none">
+       style="display:none"
+       data-type="button">
       <path
          id="path9090-6-6"
          style="fill:#ff0000;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
@@ -475,7 +496,8 @@
        id="layer19"
        inkscape:label="zl"
        data-state="zl"
-       style="display:none">
+       style="display:none"
+       data-type="button">
       <path
          id="path16303-0"
          style="display:inline;fill:#ff0000;stroke:#000000;stroke-width:0.233919px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
@@ -487,7 +509,8 @@
        id="layer20"
        inkscape:label="zr"
        data-state="zr"
-       style="display:none">
+       style="display:none"
+       data-type="button">
       <path
          id="path16303-2-6"
          style="display:inline;fill:#ff0000;stroke:#000000;stroke-width:0.233919px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"

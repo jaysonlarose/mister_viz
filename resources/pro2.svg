@@ -12,6 +12,7 @@
    data-name="8Bitdo Pro 2"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
    xmlns="http://www.w3.org/2000/svg"
    xmlns:svg="http://www.w3.org/2000/svg">
   <sodipodi:namedview
@@ -29,15 +30,15 @@
      fit-margin-left="5"
      fit-margin-right="5"
      fit-margin-bottom="5"
-     inkscape:zoom="3.6203867"
-     inkscape:cx="165.86626"
-     inkscape:cy="258.1216"
+     inkscape:zoom="20.48"
+     inkscape:cx="267.0166"
+     inkscape:cy="91.967774"
      inkscape:window-width="3840"
      inkscape:window-height="2089"
      inkscape:window-x="0"
      inkscape:window-y="34"
      inkscape:window-maximized="1"
-     inkscape:current-layer="layer27"
+     inkscape:current-layer="g974"
      inkscape:object-paths="true"
      inkscape:snap-intersection-paths="true"
      inkscape:snap-smooth-nodes="true"
@@ -70,6 +71,46 @@
   </sodipodi:namedview>
   <defs
      id="defs2">
+    <linearGradient
+       inkscape:collect="always"
+       id="r2-gradient">
+      <stop
+         style="stop-color:#ff0000;stop-opacity:1;"
+         offset="0"
+         id="stop6674" />
+      <stop
+         style="stop-color:#ff0000;stop-opacity:1"
+         offset="0.1"
+         id="stop6676" />
+      <stop
+         style="stop-color:#000000;stop-opacity:1"
+         offset="0.1"
+         id="stop6678" />
+      <stop
+         style="stop-color:#000000;stop-opacity:1"
+         offset="1"
+         id="stop6680" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       id="l2-gradient">
+      <stop
+         style="stop-color:#ff0000;stop-opacity:1;"
+         offset="0"
+         id="stop1148" />
+      <stop
+         style="stop-color:#ff0000;stop-opacity:1"
+         offset="0.8"
+         id="stop1570" />
+      <stop
+         style="stop-color:#000000;stop-opacity:1"
+         offset="0.8"
+         id="stop3558" />
+      <stop
+         style="stop-color:#000000;stop-opacity:1"
+         offset="1"
+         id="stop1150" />
+    </linearGradient>
     <inkscape:path-effect
        effect="mirror_symmetry"
        start_point="51.188516,103.3744"
@@ -322,6 +363,24 @@
        oposite_fuse="false"
        split_items="false"
        split_open="false" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#r2-gradient"
+       id="linearGradient2306"
+       gradientUnits="userSpaceOnUse"
+       x1="79.244339"
+       y1="-19.336803"
+       x2="79.244339"
+       y2="-8.831501" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#l2-gradient"
+       id="linearGradient6608"
+       gradientUnits="userSpaceOnUse"
+       x1="23.113155"
+       y1="-19.336803"
+       x2="23.113155"
+       y2="-8.8159618" />
   </defs>
   <g
      inkscape:groupmode="layer"
@@ -895,28 +954,30 @@
      style="display:inline">
     <g
        inkscape:groupmode="layer"
-       id="layer26"
+       id="g6221"
        inkscape:label="l2"
        transform="translate(1.8790954,7.2790193)"
        style="display:none"
        data-state="l2"
-       data-type="button">
+       data-type="axis"
+       data-segments="32">
       <path
-         id="path1343-7-2"
-         style="display:inline;fill:#ff0000;stroke:#808080;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         id="path6219"
+         style="display:inline;fill:url(#linearGradient6608);fill-opacity:1;stroke:#808080;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
          d="m 16.500285,-19.336804 c -0.703593,0.0205 -1.027508,0.432006 -0.947746,1.258838 1.313812,4.259358 2.023784,9.4200713 6.80992,9.2464639 h 1.540474 c 2.313065,-0.1085652 5.255102,-0.9311635 6.581512,-5.6807899 l 0.711583,-3.34915 c 0.0065,-1.023449 -0.557167,-1.429556 -1.241785,-1.475362 z" />
     </g>
     <g
        inkscape:groupmode="layer"
-       id="layer31"
+       id="g974"
        inkscape:label="r2"
        style="display:none"
        data-state="r2"
-       data-type="button">
+       data-type="axis"
+       data-segments="32">
       <path
-         id="mirror-path-effect9134-9"
+         id="path972"
          d="m 85.876745,-19.336804 c 0.703593,0.0205 1.027508,0.432006 0.947746,1.258838 -1.313812,4.259358 -2.023784,9.4200713 -6.80992,9.2464639 h -1.540474 c -2.313065,-0.1085652 -5.255102,-0.9311635 -6.581512,-5.6807899 l -0.711583,-3.34915 c -0.0065,-1.023449 0.557167,-1.429556 1.241785,-1.475362 z"
-         style="display:inline;fill:#ff0000;stroke:#808080;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         style="display:inline;fill:url(#linearGradient2306);fill-opacity:1;stroke:#808080;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
          transform="translate(1.8790954,7.2790193)" />
     </g>
     <g

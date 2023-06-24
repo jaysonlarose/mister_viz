@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!-- Created with Inkscape (http://www.inkscape.org/) -->
-
 <svg
    width="1017.9849"
    height="519.35077"
@@ -9,6 +7,7 @@
    id="svg5"
    inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
    sodipodi:docname="m30.svg"
+   data-name="8BitDo M30 Controller"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -28,7 +27,7 @@
      inkscape:snap-bbox="true"
      inkscape:snap-others="false"
      inkscape:zoom="2.9576319"
-     inkscape:cx="679.76681"
+     inkscape:cx="642.57489"
      inkscape:cy="227.03975"
      inkscape:window-width="3840"
      inkscape:window-height="2089"
@@ -284,7 +283,8 @@
      inkscape:label="star"
      data-state="star"
      style="display:none"
-     transform="translate(1.326569,-17.893644)">
+     transform="translate(1.326569,-17.893644)"
+     data-type="button">
     <ellipse
        style="display:inline;fill:#00faff;fill-opacity:0.998382;stroke:#ffffff;stroke-width:0.392351;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;stop-color:#000000"
        id="path3043-5"
@@ -300,7 +300,8 @@
      inkscape:label="heart"
      data-state="heart"
      style="display:none"
-     transform="translate(1.326569,-17.893644)">
+     transform="translate(1.326569,-17.893644)"
+     data-type="button">
     <ellipse
        style="display:inline;fill:#00faff;fill-opacity:0.998382;stroke:#ffffff;stroke-width:0.383466;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;stop-color:#000000"
        id="path3047-7"
@@ -327,7 +328,8 @@
        id="layer15"
        inkscape:label="up"
        style="display:none"
-       data-state="up">
+       data-state="up"
+       data-type="button">
       <path
          id="path3055"
          style="display:inline;fill:#00faff;fill-opacity:1;stroke:none;stroke-width:0.371;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;stop-color:#000000"
@@ -338,7 +340,8 @@
        id="layer16"
        inkscape:label="down"
        style="display:none"
-       data-state="down">
+       data-state="down"
+       data-type="button">
       <path
          id="path3059"
          style="display:inline;fill:#00faff;fill-opacity:1;stroke:none;stroke-width:0.371;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;stop-color:#000000"
@@ -349,7 +352,8 @@
        id="layer17"
        inkscape:label="left"
        style="display:none"
-       data-state="left">
+       data-state="left"
+       data-type="button">
       <path
          id="path5868"
          style="display:inline;fill:#00faff;fill-opacity:1;stroke:none;stroke-width:0.371;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;stop-color:#000000"
@@ -360,7 +364,8 @@
        id="layer18"
        inkscape:label="right"
        style="display:none"
-       data-state="right">
+       data-state="right"
+       data-type="button">
       <path
          id="path3057"
          style="display:inline;fill:#00faff;fill-opacity:1;stroke:none;stroke-width:0.371;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;stop-color:#000000"
@@ -373,7 +378,8 @@
      inkscape:label="a"
      style="display:none"
      data-state="a"
-     transform="translate(380.50468,-126.67968)">
+     transform="translate(380.50468,-126.67968)"
+     data-type="button">
     <circle
        style="display:inline;fill:#00faff;fill-opacity:0.998382;stroke:#ffffff;stroke-width:0.381325;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;stop-color:#000000"
        id="path2920-7"
@@ -388,7 +394,8 @@
      inkscape:label="b"
      style="display:none"
      data-state="b"
-     transform="translate(380.50468,-126.67968)">
+     transform="translate(380.50468,-126.67968)"
+     data-type="button">
     <ellipse
        style="display:inline;fill:#00faff;fill-opacity:0.998382;stroke:#ffffff;stroke-width:0.399567;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;stop-color:#000000"
        id="path2922-6"
@@ -404,7 +411,8 @@
      inkscape:label="c"
      style="display:none"
      data-state="c"
-     transform="translate(380.50468,-126.67968)">
+     transform="translate(380.50468,-126.67968)"
+     data-type="button">
     <circle
        style="display:inline;fill:#00faff;fill-opacity:0.998382;stroke:#ffffff;stroke-width:0.380518;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;stop-color:#000000"
        id="path2924-4"
@@ -419,7 +427,8 @@
      inkscape:label="x"
      style="display:none"
      data-state="x"
-     transform="translate(380.50468,-126.67968)">
+     transform="translate(380.50468,-126.67968)"
+     data-type="button">
     <circle
        style="display:inline;fill:#00faff;fill-opacity:0.998382;stroke:#ffffff;stroke-width:0.402245;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;stop-color:#000000"
        id="path2914-3"
@@ -434,7 +443,8 @@
      inkscape:label="y"
      style="display:none"
      data-state="y"
-     transform="translate(380.50468,-126.67968)">
+     transform="translate(380.50468,-126.67968)"
+     data-type="button">
     <ellipse
        style="display:inline;fill:#00faff;fill-opacity:0.998382;stroke:#ffffff;stroke-width:0.402945;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;stop-color:#000000"
        id="path2916-0"
@@ -450,7 +460,8 @@
      inkscape:label="z"
      style="display:none"
      transform="translate(380.50468,-126.67968)"
-     data-state="z">
+     data-state="z"
+     data-type="button">
     <circle
        style="display:inline;fill:#00faff;fill-opacity:0.998382;stroke:#ffffff;stroke-width:0.387925;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;stop-color:#000000"
        id="path2918-3"
@@ -465,7 +476,8 @@
      inkscape:label="l"
      style="display:none"
      data-state="l"
-     transform="translate(380.50468,-126.67968)">
+     transform="translate(380.50468,-126.67968)"
+     data-type="button">
     <path
        id="path3616-8"
        style="display:inline;fill:#00faff;stroke:#ffffff;stroke-width:0.343001;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
@@ -478,7 +490,8 @@
      inkscape:label="r"
      style="display:none"
      data-state="r"
-     transform="translate(380.50468,-126.67968)">
+     transform="translate(380.50468,-126.67968)"
+     data-type="button">
     <path
        id="path3616-7-3"
        style="display:inline;fill:#00faff;stroke:#ffffff;stroke-width:0.343001;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
@@ -491,7 +504,8 @@
      inkscape:label="start"
      style="display:none"
      data-state="start"
-     transform="translate(380.50468,-126.67968)">
+     transform="translate(380.50468,-126.67968)"
+     data-type="button">
     <path
        id="path3049-9"
        style="display:inline;fill:#00faff;fill-opacity:1;stroke:#ffffff;stroke-width:0.394127;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;stop-color:#000000"
@@ -503,7 +517,8 @@
      inkscape:label="select"
      style="display:none"
      data-state="select"
-     transform="translate(380.50468,-126.67968)">
+     transform="translate(380.50468,-126.67968)"
+     data-type="button">
     <circle
        style="display:inline;fill:#00faff;fill-opacity:1;stroke:#ffffff;stroke-width:0.370936;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;stop-color:#000000"
        id="path3045-2"

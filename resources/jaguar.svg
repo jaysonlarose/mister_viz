@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!-- Created with Inkscape (http://www.inkscape.org/) -->
-
 <svg
    width="69.157021mm"
    height="53.581734mm"
@@ -8,7 +6,8 @@
    version="1.1"
    id="svg5"
    inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
-   sodipodi:docname="jaguar.svg.2022_07_20_03_55_47.0.svg"
+   sodipodi:docname="jaguar.svg"
+   data-name="Atari Jaguar Pro Controller"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -24,12 +23,12 @@
      inkscape:document-units="mm"
      showgrid="false"
      inkscape:zoom="4.1827231"
-     inkscape:cx="8.8459119"
-     inkscape:cy="99.217661"
+     inkscape:cx="-0.7172361"
+     inkscape:cy="99.3372"
      inkscape:window-width="3840"
-     inkscape:window-height="2134"
+     inkscape:window-height="2089"
      inkscape:window-x="0"
-     inkscape:window-y="0"
+     inkscape:window-y="34"
      inkscape:window-maximized="1"
      inkscape:current-layer="layer14"
      inkscape:object-paths="false"
@@ -384,7 +383,8 @@
      inkscape:label="a"
      data-state="a"
      style="display:none"
-     transform="translate(-4.2715735,-7.0282262)">
+     transform="translate(-4.2715735,-7.0282262)"
+     data-type="button">
     <circle
        style="fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.265;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
        id="path1530-1-2"
@@ -398,7 +398,8 @@
      inkscape:label="b"
      data-state="b"
      style="display:none"
-     transform="translate(-4.2715735,-7.0282262)">
+     transform="translate(-4.2715735,-7.0282262)"
+     data-type="button">
     <circle
        style="fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.265;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
        id="path1530-1"
@@ -412,7 +413,8 @@
      inkscape:label="c"
      data-state="c"
      style="display:none"
-     transform="translate(-4.2715735,-7.0282262)">
+     transform="translate(-4.2715735,-7.0282262)"
+     data-type="button">
     <circle
        style="fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.265;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
        id="path1530"
@@ -426,7 +428,8 @@
      inkscape:label="option"
      data-state="option"
      style="display:none"
-     transform="translate(-4.2715735,-7.0282262)">
+     transform="translate(-4.2715735,-7.0282262)"
+     data-type="button">
     <path
        id="path1826-23-7"
        style="fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.248009;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
@@ -438,7 +441,8 @@
      inkscape:label="pause"
      data-state="pause"
      style="display:none"
-     transform="translate(-4.2715735,-7.0282262)">
+     transform="translate(-4.2715735,-7.0282262)"
+     data-type="button">
     <path
        id="path1826-23"
        style="fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.248009;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
@@ -450,7 +454,8 @@
      inkscape:label="1"
      data-state="1"
      style="display:none"
-     transform="translate(-4.2715735,-7.0282262)">
+     transform="translate(-4.2715735,-7.0282262)"
+     data-type="button">
     <path
        id="path1826"
        style="fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.937357;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
@@ -463,7 +468,8 @@
      inkscape:label="2"
      data-state="2"
      style="display:none"
-     transform="translate(-4.2715735,-7.0282262)">
+     transform="translate(-4.2715735,-7.0282262)"
+     data-type="button">
     <path
        id="path1826-2"
        style="fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.248009;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
@@ -475,7 +481,8 @@
      inkscape:label="3"
      data-state="3"
      style="display:none"
-     transform="translate(-4.2715735,-7.0282262)">
+     transform="translate(-4.2715735,-7.0282262)"
+     data-type="button">
     <path
        id="path1826-2-7"
        style="fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.248009;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
@@ -487,7 +494,8 @@
      inkscape:label="4"
      data-state="4"
      style="display:none"
-     transform="translate(-4.2715735,-7.0282262)">
+     transform="translate(-4.2715735,-7.0282262)"
+     data-type="button">
     <path
        id="path1826-6"
        style="fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.248009;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
@@ -504,7 +512,8 @@
      inkscape:label="5"
      data-state="5"
      style="display:none"
-     transform="translate(-4.2715735,-7.0282262)">
+     transform="translate(-4.2715735,-7.0282262)"
+     data-type="button">
     <path
        id="path1826-6-6"
        style="fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.248009;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
@@ -516,7 +525,8 @@
      inkscape:label="6"
      data-state="6"
      style="display:none"
-     transform="translate(-4.2715735,-7.0282262)">
+     transform="translate(-4.2715735,-7.0282262)"
+     data-type="button">
     <path
        id="path1826-6-6-9"
        style="fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.248009;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
@@ -533,7 +543,8 @@
      inkscape:label="7"
      data-state="7"
      style="display:none"
-     transform="translate(-4.2715735,-7.0282262)">
+     transform="translate(-4.2715735,-7.0282262)"
+     data-type="button">
     <path
        id="path1826-6-0"
        style="fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.248009;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
@@ -551,7 +562,8 @@
      inkscape:label="8"
      data-state="8"
      style="display:none"
-     transform="translate(-4.2715735,-7.0282262)">
+     transform="translate(-4.2715735,-7.0282262)"
+     data-type="button">
     <path
        id="path1826-6-0-1"
        style="fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.248009;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
@@ -569,7 +581,8 @@
      inkscape:label="9"
      data-state="9"
      style="display:none"
-     transform="translate(-4.2715735,-7.0282262)">
+     transform="translate(-4.2715735,-7.0282262)"
+     data-type="button">
     <path
        id="path1826-6-0-1-2"
        style="fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.248009;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
@@ -587,7 +600,8 @@
      inkscape:label="*"
      data-state="*"
      style="display:none"
-     transform="translate(-4.2715735,-7.0282262)">
+     transform="translate(-4.2715735,-7.0282262)"
+     data-type="button">
     <path
        id="path1826-6-0-6"
        style="fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.248009;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
@@ -599,7 +613,8 @@
      inkscape:label="0"
      data-state="0"
      style="display:none"
-     transform="translate(-4.2715735,-7.0282262)">
+     transform="translate(-4.2715735,-7.0282262)"
+     data-type="button">
     <path
        id="path1826-6-0-6-8"
        style="fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.248009;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
@@ -611,7 +626,8 @@
      inkscape:label="#"
      data-state="#"
      style="display:none"
-     transform="translate(-4.2715735,-7.0282262)">
+     transform="translate(-4.2715735,-7.0282262)"
+     data-type="button">
     <path
        id="path1826-6-0-6-8-0"
        style="fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.248009;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
@@ -623,7 +639,8 @@
      inkscape:label="up"
      style="display:none"
      data-state="up"
-     transform="translate(-4.2715735,-7.0282262)">
+     transform="translate(-4.2715735,-7.0282262)"
+     data-type="button">
     <path
        id="path13719"
        style="fill:#ff0000;fill-opacity:0.998382;stroke:none;stroke-width:0.995059;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
@@ -636,7 +653,8 @@
      inkscape:label="down"
      style="display:none"
      data-state="down"
-     transform="translate(-4.2715735,-7.0282262)">
+     transform="translate(-4.2715735,-7.0282262)"
+     data-type="button">
     <path
        id="path13723"
        style="fill:#ff0000;fill-opacity:0.998382;stroke:none;stroke-width:0.995059;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
@@ -649,7 +667,8 @@
      inkscape:label="left"
      style="display:none"
      data-state="left"
-     transform="translate(-4.2715735,-7.0282262)">
+     transform="translate(-4.2715735,-7.0282262)"
+     data-type="button">
     <path
        id="path4067-5-3-8"
        style="fill:#ff0000;fill-opacity:0.998382;stroke:none;stroke-width:0.995059;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
@@ -662,7 +681,8 @@
      inkscape:label="right"
      style="display:none"
      data-state="right"
-     transform="translate(-4.2715735,-7.0282262)">
+     transform="translate(-4.2715735,-7.0282262)"
+     data-type="button">
     <path
        id="path13721"
        style="fill:#ff0000;fill-opacity:0.998382;stroke:none;stroke-width:0.995059;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"

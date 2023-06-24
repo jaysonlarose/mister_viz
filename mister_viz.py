@@ -3,9 +3,163 @@
 import os, sys
 
 import gi
+import random
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib, Gdk, GdkPixbuf, GObject
-import cairosvg, cairo, io, PIL.Image, struct, yaml, lxml.etree, copy, math, socket, subprocess, atexit, multiprocessing, queue, time, traceback, psutil, datetime
+import cairosvg, cairo, io, PIL.Image, struct, yaml, lxml.etree, copy, math, socket, subprocess, atexit, multiprocessing, queue, time, traceback, psutil, datetime, random, base64, math
+
+gi.require_version("PangoCairo", "1.0")
+from gi.repository import PangoCairo, Pango
+
+if sys.platform == "linux":
+	random.seed(open("/dev/random", "rb").read(64))
+
+
+def xmlwalk(tree):
+	yield tree
+	for item in tree:
+		yield from xmlwalk(item)
+class FontWriter:# {{{
+	def __init__(self, font_name, font_face, font_size, antialias=None):
+		"""
+		FontWriter is a convenience class for working with text in
+		a Cairo surface.
+
+		Parameters:
+		font_name — The name of the font to use (ie, "Tahoma")
+		font_face — The name of the subfont variation to use
+		     (ie, "Regular", "Bold", "Italic"...)
+		font_size — Font size, in points(?)
+		antialias — if you set to any of:
+		    * cairo.Antialias.BEST
+		    * cairo.Antialias.DEFAULT
+		    * cairo.Antialias.FAST
+		    * cairo.Antialias.GOOD
+		    * cairo.Antialias.GRAY
+		    * cairo.Antialias.NONE
+		    * cairo.Antialias.SUBPIXEL
+		  , it will use those antialiasing settings.
+
+		After this class is instantiated, assign a Cairo context to
+		it using the `set_context()` method, find the size the text
+		will take up with `get_dims()`, and write the text to the
+		Cairo surface using `render()`.
+		"""
+		fontmap = PangoCairo.font_map_get_default()
+		fam = [ x for x in fontmap.list_families() if x.get_name() == font_name ][0]
+		fac = [ x for x in fam.list_faces() if x.get_face_name() == font_face ][0]
+		self.font_description = fac.describe()
+		self.font_description.set_size(font_size * Pango.SCALE)
+		self.antialias = antialias
+		self.fontoptions = None
+		if self.antialias is not None:
+			self.fontoptions = cairo.FontOptions()
+			self.fontoptions.set_antialias(self.antialias)
+		self.context = None
+	@classmethod
+	def list_fonts(cls):
+		"""
+		Lists available fonts.
+		"""
+		fontmap = PangoCairo.font_map_get_default()
+		return [ x.get_name() for x in fontmap.list_families() ]
+	@classmethod
+	def list_faces_for_font(cls, font_name):
+		"""
+		Returns a list of faces available for the specified font.
+		"""
+		fontmap = PangoCairo.font_map_get_default()
+		fam = [ x for x in fontmap.list_families() if x.get_name() == font_name ][0]
+		return [ x.get_face_name() for x in fam.list_faces() ]
+	def set_context(self, context):
+		"""
+		Assigns the supplied Cairo context to this FontWriter.
+		"""
+		self.context = context
+		self.layout = PangoCairo.create_layout(self.context)
+		self.layout.set_font_description(self.font_description)
+		PangoCairo.update_layout(self.context, self.layout)
+		if self.fontoptions is not None:
+			self.context.set_font_options(self.fontoptions)
+	def _set_text(self, text):
+		self.layout.set_text(text, len(text.encode()))
+	def get_dims(self, text):
+		"""
+		Returns the width and height that the supplied text
+		would take up if rendered.
+		"""
+		self._set_text(text)
+		return [ x / Pango.SCALE for x in self.layout.get_size() ]
+	def render(self, text, x, y):
+		"""
+		Writes out the supplied text to the currently assigned context's surface,
+		at the position x, y.
+		If you want to change the text color, call the context's `set_source_rgb`
+		or `set_source_rgba` method first.
+		"""
+		if self.context is None:
+			raise RuntimeError("Use set_context() to assign a context to this FontWriter first!")
+		self._set_text(text)
+		self.context.move_to(x, y)
+		PangoCairo.show_layout(self.context, self.layout)
+# }}}
+
+def now_tzaware():# {{{
+	# doc {{{
+	"""
+	Convenience function, equivalent to 
+	`datetime.datetime.now(tz=pytz.reference.Local)`
+	"""
+	# }}}
+	import pytz.reference, datetime
+	return datetime.datetime.now(tz=pytz.reference.Local)
+# }}}
+def format_timestamp(dt, omit_tz=False, alt_tz=False, precision=6):# {{{
+	# doc {{{
+	"""\
+	Takes a timezone-aware datetime object and makes it look like:
+
+	2019-01-21 14:38:21.123456 PST
+
+	Or, if you call it with omit_tz=True:
+
+	2019-01-21 14:38:21.123456
+
+	The precision parameter controls how many digits past the decimal point you
+	get. 6 gives you all the microseconds, 0 avoids the decimal point altogether
+	and you just get whole seconds.
+	"""
+	# }}}
+	tz_format = "%Z"
+	if alt_tz:
+		tz_format = "%z"
+	timestamp_txt = dt.strftime("%F %T")
+	if precision > 0:
+		timestamp_txt = "{}.{}".format(timestamp_txt, "{:06d}".format(dt.microsecond)[:precision])
+	if not omit_tz and dt.tzinfo is not None:
+		timestamp_txt = "{} {}".format(timestamp_txt, dt.strftime("%z"))
+	return timestamp_txt
+# }}}
+def timestamp_to_localdatetime(ts):# {{{
+	# doc {{{
+	"""
+	Like `datetime.datetime.fromtimestamp()`, except it returns a
+	timezone-aware datetime object.
+	"""
+	# }}}
+	import pytz.reference, datetime, decimal
+	if isinstance(ts, decimal.Decimal):
+		ts = float(ts)
+	return datetime.datetime.fromtimestamp(ts).replace(tzinfo=pytz.reference.Local)
+# }}}
+def plot_course(start_point, direction, distance):# {{{
+	"""
+	Given a starting point, an angle (in radians), and a distance,
+	returns the point resulting from travelling from the starting point
+	at said angle for said distance.
+	"""
+	return (start_point[0] + math.sin(direction) * distance, start_point[1] + math.cos(direction) * distance)
+# }}}
 
 global print
 global orig_print
@@ -44,6 +198,93 @@ def get_yaml_files(yaml_basedir):# {{{
 	yaml_files = [ x for x in [ os.path.join(yaml_basedir, x) for x in [ x for x in os.listdir(yaml_basedir) if os.path.splitext(x)[1] == '.yaml' and not x.startswith('_') ] ] if os.path.isfile(x) ]
 	return yaml_files
 # }}}
+
+# Functions and classes in support of parsing and working with event logs
+class LogEvent:# {{{
+	"""
+	Class for parsing and manipulating event log entries.
+	"""
+	__slots__ = ['comment', 'local_timestamp', 'tv_sec', 'tv_usec', 'inputno', 'player_id', 'vid', 'pid', 'ev_type', 'ev_code', 'ev_value']
+	def __init__(self, line):# {{{
+		frags = [ x.strip() for x in line.strip().split("#", 1) ]
+		if len(frags) > 1:
+			self.comment = frags[1]
+		else:
+			self.comment = None
+		frags = frags[0].split(',')
+		self.local_timestamp = float(frags[0])
+		self.tv_sec = int(frags[1])
+		self.tv_usec = int(frags[2])
+		self.inputno = int(frags[3])
+		self.player_id = int(frags[4])
+		self.vid = int(frags[5], 16)
+		self.pid = int(frags[6], 16)
+		self.ev_type = int(frags[7])
+		self.ev_code = int(frags[8])
+		self.ev_value = int(frags[9])
+	# }}}
+	def get_event(self):# {{{
+		event_vals = [self.tv_sec, self.tv_usec, self.ev_type, self.ev_code, self.ev_value]
+		return evdev_categorize(evdev_InputEvent(*event_vals))
+	# }}}
+	def get_timestamp(self):# {{{
+		return self.tv_sec + (self.tv_usec / 1000000)
+	# }}}
+# }}}
+class LogDisconnection:# {{{
+	"""
+	Class which represents mister_viz losing connection with the MiSTer.
+	"""
+	__slots__ = ['comment', 'local_timestamp']
+	def __init__(self, line):# {{{
+		frags = [ x.strip() for x in line.strip().split("#", 1) ]
+		if len(frags) > 1:
+			self.comment = frags[1]
+		else:
+			self.comment = None
+		frags = frags[0].split()
+		assert frags[0] == "disconnected"
+		self.local_timestamp = float(frags[1])
+	# }}}
+# }}}
+class LogConnection:# {{{
+	"""
+	Class which represents mister_viz establishing a connection with the MiSTer.
+	"""
+	__slots__ = ['comment', 'local_timestamp']
+	def __init__(self, line):# {{{
+		frags = [ x.strip() for x in line.strip().split("#", 1) ]
+		if len(frags) > 1:
+			self.comment = frags[1]
+		else:
+			self.comment = None
+		frags = frags[0].split()
+		assert frags[0] == "connected"
+		self.local_timestamp = float(frags[1])
+	# }}}
+# }}}
+def parse_logline(line):# {{{
+	"""
+	Accepts an event log line and returns an object
+	of the appropriate class
+	"""
+	line = line.strip()
+	if line.startswith("disconnected "):
+		return LogDisconnection(line)
+	elif line.startswith("connected "):
+		return LogConnection(line)
+	else:
+		return LogEvent(line)
+# }}}
+def get_frameno(start, rate, timestamp):# {{{
+	"""
+	Given a start timestamp and a framerate, returns which frame that the provided timestamp
+	would occur in.
+	"""
+	offset = timestamp - start
+	return math.ceil(offset * rate)
+# }}}
+
 
 # Functions for dealing with "display:inline;fill:#4a4a4a;stroke:#848484"-style
 # sub-attributes in SVG files.
@@ -174,14 +415,14 @@ def mangle(tree, state, debug=False):# {{{
 	"""
 	Newer, kinder, gentler mangle.
 
-	Find all "g" elements. Add each one that has a 'data-state' attribute to a dict that's keyed
-	to the data-state value.
+	Find all "g" elements. Add each one that has 'data-type' and 'data-state' attributes to a dict that's keyed
+	to these attributes.
 
-	Set all data-state defined g elements' style attrib to "display:none".
+	Set all of these g elements' style attrib to "display:none".
 
 	If state is None, we're processing the background SVG, and are finished.
 
-	Otherwise, the g element that has a data-state attribute which matches state is our key.
+	Otherwise, the g element that matches the state parameter is our key.
 	Inspect all g elements: if it is a descendent of our key, leave it alone. Otherwise,
 	if it has a style of "display:inline", change it to "display:none".
 
@@ -192,8 +433,9 @@ def mangle(tree, state, debug=False):# {{{
 	groups = tree.findall(f".//{SVG_PREFIX}g")
 	state_elems = {}
 	for g in groups:
-		if 'data-state' in g.attrib:
-			state_elems[g.attrib['data-state']] = g
+		if 'data-state' in g.attrib and 'data-type' in g.attrib:
+			key = f"{g.attrib['data-type']}:{g.attrib['data-state']}"
+			state_elems[key] = g
 
 	for elem in state_elems.values():
 		set_xmlsubattrib(elem, "style", "display", "none")
@@ -270,57 +512,167 @@ def translate_constrainedint(sensor_val, in_from, in_to, out_from, out_to):# {{{
 	return out_val
 # }}}
 
-class Stick:# {{{
-	def __init__(self):
-		self.x_axis = None
-		self.y_axis = None
-		self.has_button = False
-		self.reset()
-	def reset(self):
-		pass
-# }}}
-class MisterButton:# {{{
-	def __init__(self, element):
-		self.element = element
-		self.ptt = None
-		self.reset()
-	def set_value(self, value):
+class Control(GObject.GObject):
+	__gsignals__ = {
+		"value-changed": (GObject.SignalFlags.RUN_FIRST, None, []),
+		"reset":         (GObject.SignalFlags.RUN_FIRST, None, []),
+	}
+	def __init__(self, reset=True, parent_control=None):
+		super().__init__()
+		self.parent_control = parent_control
+		if reset:
+			self.reset()
+	def set_value(self, value, emit=True):
+		if hasattr(self, "value"):
+			orig_value = self.value
+		else:
+			orig_value = None
 		self.value = value
-		if self.ptt is not None:
-			self.ptt.set_value(value)
+		if self.parent_control is not None:
+			self.parent_control.set_value(value, emit=emit)
+		if orig_value != self.value and emit:
+			self.emit("value-changed")
+	def reset(self):
+		self.set_value(None, emit=False)
+		self.emit("reset")
 	def get_state(self):
-		if self.value > 0:
-			return set([self.element])
 		return set()
 	def all_states(self):
-		return set([self.element])
+		return set()
+class Stick(Control):# {{{
+	"""
+	This class represents a typical gamepad
+	analog control stick. It contains an x axis,
+	a y axis, and optionally a button.
+	"""
+	def __init__(self, x_axis=None, y_axis=None, button=None):
+		self.x_axis = x_axis
+		self.y_axis = y_axis
+		self.button = button
+		super().__init__(reset=False)
+		if self.x_axis is not None:
+			self.x_axis.connect("value-changed", self.value_change_propagator)
+		if self.y_axis is not None:
+			self.y_axis.connect("value-changed", self.value_change_propagator)
+		if self.button is not None:
+			self.button.connect("value-changed", self.value_change_propagator)
+		self.reset()
+	@property
+	def has_button(self):
+		return self.button is not None
+	def value_change_propagator(self, *args):
+		self.emit("value-changed")
 	def reset(self):
-		self.value = 0
+		if self.x_axis is not None:
+			self.x_axis.reset()
+		if self.y_axis is not None:
+			self.y_axis.reset()
+		self.emit("reset")
 # }}}
-class MisterAxis:# {{{
+class Button(Control):# {{{
+	def __init__(self, element):
+		super().__init__(reset=False)
+		self.element = element
+		#self.ptt = None
+		self.stick = None
+		self.reset()
+	def reset(self):
+		self.set_value(0, emit=False)
+		self.emit("reset")
+	@property
+	def on_stick(self):
+		if self.stick is not None:
+			return True
+		return False
+	#def set_value(self, value, emit=True):
+	#	if self.ptt is not None:
+	#		self.ptt.set_value(value)
+	#	old_value = self.value
+	#	self.value = value
+	#	if self.value != old_value and emit:
+
+
+	def get_state(self):
+		if self.value > 0:
+			return set([f"button:{self.element}"])
+		return set()
+	def all_states(self):
+		return set([f"button:{self.element}"])
+# }}}
+class Axis(Control):# {{{
 	def __init__(self, spec):
+		super().__init__(reset=False)
+		#self.ptt = None
+		self.ptt_range = None
 		self.spec = spec
-		self.value = None
 		self.states = set()
 		self.rangemap = []
 		self.is_stick = False
 		self.is_binary = False
+		self.is_analog = False
 		self.stickname = None
+		self.min_value = None
+		self.max_value = None
+		self.default_value = 0
+		self.min_pos = None
+		self.max_pos = None
+		self.svg_res = None
+		# Presence of an 'svg_res' attribute means this is an axis for a MisterVizResourceMap
+		if 'svg_res' in self.spec:
+			self.svg_res = self.spec['svg_res']
+		# Presence of a 'binary' attribute means this is an axis for a MisterVizResourceMap
 		if 'binary' in self.spec:
 			self.is_binary = True
 			for k, v in self.spec['binary'].items():
-				self.rangemap.append([v[0], v[1], k])
+				self.rangemap.append([v[0], v[1], f"button:{k}"])
+		# Presence of an 'analog' attribute means this is an axis for a MisterVizResourceMap
+		if 'analog' in self.spec:
+			self.is_analog = True
+			# this attribute should have 'mapped_to', 'min_value', and 'max_value' subattributes.
+			self.mapped_to = self.spec['analog']['mapped_to']
+			self.min_value = self.spec['analog']['min_value']
+			self.max_value = self.spec['analog']['max_value']
+			self.segments = self.svg_res.axes[self.mapped_to].segments
+			self.parent_control = self.svg_res.axes[self.mapped_to]
+		# Presence of a 'stick' attribute means this is an axis for a MisterVizResourceMap
 		if 'stick' in self.spec:
 			for k, v in self.spec['stick'].items():
 				self.stickname = k
 				for k, v in v.items():
 					self.stickaxis = k
-					self.minval, self.minpos = v[0]
-					self.maxval, self.maxpos = v[1]
+					if self.svg_res is not None:
+						svgres_key = f"{self.stickname}:{self.stickaxis}"
+						if svgres_key in self.svg_res.axes:
+							svgres_axis = self.svg_res.axes[svgres_key]
+							self.parent_control = svgres_axis
+							for attrname in ['min_value', 'max_value', 'default_value', 'min_pos', 'max_pos']:
+								attrval = getattr(svgres_axis, attrname)
+								if attrval is not None:
+									print(f"Setting stick {self.stickname} axis {self.stickaxis} attr {attrname} to {attrval} (inherited from svg_res)", file=sys.stderr)
+									setattr(self, attrname, attrval)
+					for k in ['min_value', 'max_value', 'default_value', 'min_pos', 'max_pos']:
+						if k in v:
+							print(f"Setting stick {self.stickname} axis {self.stickaxis} attr {k} to {v[k]}", file=sys.stderr)
+							setattr(self, k, v[k])
 			self.is_stick = True
+		# Presence of a 'segments' attribute means this is an axis for a SvgControllerResources
+		if 'segments' in self.spec:
+			self.is_analog = True
+			self.element = self.spec['element']
+			self.segments = self.spec['segments']
+		if 'default_value' in self.spec:
+			self.default_value = int(self.spec['default_value'])
+		if 'ptt' in self.spec:
+			self.ptt_range = self.spec['ptt']
 		self.reset()
-	def set_value(self, value):
-		self.value = value
+	#def set_value(self, value):
+	#	if self.ptt is not None and self.ptt_range is not None:
+	#		fromval, toval = self.ptt_range
+	#		if value >= fromval and value <= toval:
+	#			self.ptt.set_value(1)
+	#		else:
+	#			self.ptt.set_value(0)
+	#	self.value = value
 	def get_state(self):
 		ret = set()
 		if self.value is None:
@@ -329,6 +681,9 @@ class MisterAxis:# {{{
 			for fromval, toval, elem in self.rangemap:
 				if self.value >= fromval and self.value <= toval:
 					ret.add(elem)
+		if self.is_analog:
+			segment_num = translate_constrainedint(self.value, self.min_value, self.max_value, 0, self.segments - 1)
+			ret.add(f"axis:{self.mapped_to}:{segment_num}")
 		return ret
 	def all_states(self):
 		ret = set()
@@ -337,7 +692,11 @@ class MisterAxis:# {{{
 				ret.add(elem)
 		return ret
 	def reset(self):
-		pass
+		self.set_value(self.default_value, emit=False)
+		self.emit("reset")
+		#if self.ptt is not None:
+		#	self.ptt.set_value(0)
+
 # }}}
 
 class JackPushToTalk:# {{{
@@ -345,6 +704,7 @@ class JackPushToTalk:# {{{
 		import dbus, dbus.mainloop.glib
 		dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 		self.dbus = dbus.SessionBus()
+		self.lastval = False
 
 	def set_value(self, value):
 		self.value = value
@@ -352,7 +712,9 @@ class JackPushToTalk:# {{{
 			setval = True
 		else:
 			setval = False
-		call_dbus_method(self.dbus, "org.interlaced.jack_ptt", "/org/interlaced/jack_ptt", "org.freedesktop.DBus.Properties", "Set", "org.interlaced.jack_ptt", "attach", setval)
+		if setval != self.lastval:
+			call_dbus_method(self.dbus, "org.interlaced.jack_ptt", "/org/interlaced/jack_ptt", "org.freedesktop.DBus.Properties", "Set", "org.interlaced.jack_ptt", "attach", setval)
+			self.lastval = setval
 # }}}
 def svg_to_pixbuf(svg_bytes, scale_factor):# {{{
 	fobj = io.BytesIO(cairosvg.svg2png(svg_bytes, scale=scale_factor))
@@ -360,6 +722,23 @@ def svg_to_pixbuf(svg_bytes, scale_factor):# {{{
 	pixbuf = pil_to_pixbuf(pil_img, mode="RGBA")
 	return pixbuf
 # }}}
+
+def modify_gradient(tree, axis_name, fract):
+	axis_groups = [ x for x in xmlwalk(tree) if 'data-type' in x.attrib and 'data-state' in x.attrib and x.attrib['data-type'] == 'axis' and x.attrib['data-state'] == axis_name ]
+	axis_group = axis_groups[0]
+	gradient_axis_elems = [ [x[0], x[1]['fill']] for x in [ [x, xmlattrib_to_dict(x.attrib['style'])] for x in xmlwalk(axis_group) if 'style' in x.attrib ] if 'fill' in x[1] and x[1]['fill'].startswith("url(#linearGradient") ]
+
+	if len(gradient_axis_elems) < 1:
+		return None
+	elem, raw_url = gradient_axis_elems[0]
+	url = raw_url.split("#", 1)[1].split(")", 1)[0]
+	gradient_element = [ x for x in xmlwalk(tree) if 'id' in x.attrib and x.attrib['id'] == url ][0]
+	gradientdef_href = gradient_element.attrib['{http://www.w3.org/1999/xlink}href']
+	if gradientdef_href.startswith('#'):
+		gradientdef_href = gradientdef_href[1:]
+	gradientdef = [ x for x in xmlwalk(tree) if 'id' in x.attrib and x.attrib['id'] == gradientdef_href ][0]
+	for stop_elem in gradientdef[1:3]:
+		stop_elem.attrib['offset'] = f"{fract}"
 def svg_state_split(svg_bytes, debug=False):# {{{
 	ret = {}
 	tree = lxml.etree.fromstring(svg_bytes)
@@ -367,46 +746,194 @@ def svg_state_split(svg_bytes, debug=False):# {{{
 	states = []
 	for elem in flat:
 		if elem.tag == SVG_PREFIX + 'g':
+			dt = elem.get("data-type", None)
 			ds = elem.get("data-state", None)
-			if ds is not None:
-				states.append(ds)
+			if dt is not None and ds is not None:
+				key = f"{dt}:{ds}"
+				states.append(key)
 				set_xmlsubattrib(elem, 'style', 'display', 'none')
 	states.append(None)
 	for state in states:
+		print(f"state: {state}", file=sys.stderr)
 		chip = copy.deepcopy(tree)
 		mangle(chip, state, debug=debug)
 		devastate(chip, debug=debug)
-		ret[state] = lxml.etree.tostring(chip)
+
+		handled = False
+		if state is not None:
+			dt, ds = state.split(":", 1)
+			if dt == "axis":
+				axis_groups = [ x for x in xmlwalk(tree) if 'data-type' in x.attrib and 'data-state' in x.attrib and x.attrib['data-type'] == 'axis' and x.attrib['data-state'] == ds ]
+				print(f"axis_groups: {axis_groups}", file=sys.stderr)
+				axis_group = axis_groups[0]
+				if 'data-segments' in axis_group.attrib:
+					seg_qty = int(axis_group.attrib['data-segments'])
+					for val, fract in [ [x, x / (seg_qty - 1)] for x in range(seg_qty) ]:
+						crumb = copy.deepcopy(chip)
+						key = f"{dt}:{ds}:{val}"
+						modify_gradient(crumb, ds, fract)
+						ret[key] = lxml.etree.tostring(crumb)
+				handled = True
+		if not handled:
+			ret[state] = lxml.etree.tostring(chip)
 	return ret
 # }}}
 
-class ControllerResources:# {{{
-	def __init__(self, yaml_filename):# {{{
+
+class SvgControllerResources:
+	def __init__(self, svg_filename):
+		self.base_dir = os.path.dirname(svg_filename)
+		base = os.path.splitext(os.path.basename(svg_filename))[0]
+		self.base_name = os.path.splitext(base)[0]
+		self.base_svg = open(svg_filename, "rb").read()
+		self.tree = lxml.etree.fromstring(self.base_svg)
+		self.buttons = {}
+		self.axes = {}
+		self.sticks = {}
+		self.vid = 0xffff
+		self.pid = 0xffff
+		self.has_rumble = False
+		self.last_rumble = None
+
+		if 'data-name' in self.tree.attrib:
+			self.name = self.tree.attrib['data-name']
+		if 'data-scale' in self.tree.attrib:
+			self.scale = float(self.tree.attrib['data-scale'])
+
+		group_elems = self.tree.findall(f".//{SVG_PREFIX}g")
+		state_elems = [ x for x in group_elems if 'data-state' in x.attrib ]
+		for elem in state_elems:
+			state_value = elem.attrib['data-state']
+			if 'data-type' not in elem.attrib:
+				raise RuntimeError(f"SVG ERROR ({svg_filename}): group with data-state {elem.attrb['data-state']} has no data-type!")
+			type_value = elem.attrib['data-type']
+			if type_value == 'button':
+				self.buttons[state_value] = Button(state_value)
+			elif type_value == 'axis':
+				axis_spec = {
+					'element': state_value,
+				}
+				if 'data-segments' in elem.attrib:
+					axis_spec['segments'] = int(elem.attrib['data-segments'])
+				self.axes[state_value] = Axis(axis_spec)
+			elif type_value == 'stick':
+				if 'data-extents-x' not in elem.attrib:
+					raise RuntimeError(f"SVG ERROR ({svg_filename}): group ({elem.attrib}) with data-type 'stick' has no data-extents-x!")
+				if 'data-extents-y' not in elem.attrib:
+					raise RuntimeError(f"SVG ERROR ({svg_filename}): group ({elem.attrib}) with data-type 'stick' has no data-extents-y!")
+				extents_x = [ int(x) for x in elem.attrib['data-extents-x'].split() ]
+				extents_y = [ int(x) for x in elem.attrib['data-extents-y'].split() ]
+				axis_spec = {
+					'stick': {
+						state_value: {
+							'x': {
+								'min_pos': extents_x[0],
+								'max_pos': extents_x[1],
+							},
+						},
+					},
+				}
+				self.axes[f"{state_value}:x"] = Axis(axis_spec)
+				axis_spec = {
+					'stick': {
+						state_value: {
+							'y': {
+								'min_pos': extents_y[0],
+								'max_pos': extents_y[1],
+							},
+						},
+					},
+				}
+				self.axes[f"{state_value}:y"] = Axis(axis_spec)
+
+				stick_obj = Stick()
+				stick_obj.x_axis = self.axes[f"{state_value}:x"]
+				stick_obj.y_axis = self.axes[f"{state_value}:y"]
+				self.sticks[state_value] = stick_obj
+		for k, v in self.sticks.items():
+			if k in self.buttons:
+				v.button = self.buttons[k]
+				self.buttons[k].stick = v
+		# Process svg file
+		self.svgs = svg_state_split(self.base_svg)
+	def dump_svgs(self):		
+		for k in self.svgs:
+			outfile = f"{k.replace(':', '_')}.svg"
+			open(outfile, "wb").write(self.svgs[k])
+	def dump_state(self):
+		ret = []
+		sub = []
+		for k in sorted(self.buttons.keys()):
+			sub.append(self.buttons[k].value)
+		ret.append(tuple(sub))
+		sub = []
+		for k in sorted(self.axes.keys()):
+			sub.append(self.axes[k].value)
+		ret.append(tuple(sub))
+		return tuple(ret)
+	def load_state(self, dump):
+		for i, k in enumerate(sorted(self.buttons.keys())):
+			self.buttons[k].set_value(dump[0][i])
+		for i, k in enumerate(sorted(self.axes.keys())):
+			self.axes[k].set_value(dump[1][i])
+	def format_state(self):
+		frags = []
+		orphan_axes = dict(self.axes.items())
+		for k in sorted(self.sticks):
+			stick = self.sticks[k]
+			frags.append(f"{k}: {stick.x_axis.value},{stick.y_axis.value}")
+			for ak in list(orphan_axes.keys()):
+				for ax in [stick.x_axis, stick.y_axis]:
+					if orphan_axes[ak] == ax:
+						del orphan_axes[ak]
+						break
+		for k in sorted(orphan_axes):
+			axis = orphan_axes[k]
+			frags.append(f"{k}: {axis.value}")
+		for k in sorted(self.buttons):
+			button = self.buttons[k]
+			if button.value > 0:
+				frags.append(f"{k}")
+		return " ".join(frags)
+
+
+class MisterVizResourceMap:
+	"""
+	This reads in a YAML file and uses it to Linux input subsystem events
+	onto SvgControllerResources.
+	"""
+	def __init__(self, yaml_filename):
 		self.base_dir = os.path.dirname(yaml_filename)
 		base = os.path.splitext(os.path.basename(yaml_filename))[0]
 		self.base_name = os.path.splitext(base)[0]
 		self.base_yaml = open(yaml_filename, "r").read()
 		self.config = yaml.load(self.base_yaml, Loader=yaml.Loader)
 		svg_filename = os.path.join(self.base_dir, f"{self.config['svg']}")
-		self.base_svg  = open(svg_filename, "rb").read()
+
+		self.svg_res = SvgControllerResources(svg_filename)
 		self.connected = False
+		if 'primary' not in self.config:
+			self.config['primary'] = True
 
 		c = self.config
-		self.buttons = {}
-		self.axes = {}
-		self.sticks = {}
+		#self.buttons = self.svg_res.buttons
+		#self.axes    = self.svg_res.axes
+		self.sticks  = self.svg_res.sticks
 		self.vid = c['vid']
 		self.pid = c['pid']
+		self.buttons = {}
 		if 'buttons' in c:
 			for k, v in c['buttons'].items():
-				self.buttons[k] = MisterButton(v)
+				self.buttons[k] = self.svg_res.buttons[v]
+		self.axes = {}
 		if 'axes' in c:
 			for k, v in c['axes'].items():
-				self.axes[k] = MisterAxis(v)
+				v['svg_res'] = self.svg_res
+				self.axes[k] = Axis(v)
 		for axis in self.axes.values():
 			if axis.is_stick:
-				if axis.stickname not in self.sticks:
-					self.sticks[axis.stickname] = Stick()
+				#if axis.stickname not in self.sticks:
+				#	self.sticks[axis.stickname] = Stick()
 				if axis.stickaxis == 'x':
 					self.sticks[axis.stickname].x_axis = axis
 				elif axis.stickaxis == 'y':
@@ -416,11 +943,26 @@ class ControllerResources:# {{{
 			all_buttons |= x.all_states()
 		for x in self.axes.values():
 			all_buttons |= x.all_states()
-		for k, v in self.sticks.items():
-			if k in all_buttons:
-				v.has_button = True
 		# Process svg file
-		self.svgs = svg_state_split(self.base_svg)
+		#self.svgs = svg_state_split(self.base_svg)
+		self.svgs = self.svg_res.svgs
+	@property
+	def name(self):
+		if 'name' in self.config:
+			return self.config['name']
+		if hasattr(self, 'name'):
+			return self.name
+		return None
+
+	@property
+	def has_rumble(self):
+		return self.svg_res.has_rumble
+	@property
+	def last_rumble(self):
+		return self.svg_res.last_rumble
+	@last_rumble.setter
+	def last_rumble(self, val):
+		self.svg_res.last_rumble = val
 
 	def dump_svgs(self):		
 		for k in self.svgs:
@@ -561,12 +1103,14 @@ class MultiprocSvgScaler(GObject.GObject):# {{{
 			self.queue_poller_handle = GLib.timeout_add(250, self.queue_poller)
 # }}}
 	def pipe_handler(self, fd, flags):# {{{
+		print("pipe_handler()")
 		for proc_dict in self.processes:
 			if proc_dict['pipe'].fileno() == fd:
 				proc_dict['pipe'].recv()
 				break
 		payload = self.outq.get()
 		stuff = scaler_queue_payload_to_pixbuf(payload)
+		print("scaled")
 		self.emit("result", [stuff.key, stuff.pixbuf, stuff.x_offset, stuff.y_offset, stuff.factor])
 		return True
 # }}}
@@ -596,6 +1140,7 @@ class MultiprocSvgScaler(GObject.GObject):# {{{
 		return False
 # }}}
 	def scale_svg(self, key, svg_bytes, factor):# {{{
+		#print(f"scale_svg({key}), ..., {factor}")
 		self.inq.put([key, svg_bytes, factor])
 # }}}
 	def shutdown(self, *args):# {{{
@@ -618,7 +1163,9 @@ def scaler_process_func(inq, outq, pipe=None):# {{{
 	while True:
 		try:
 			payload = inq.get(block=True)
+			#print(f"payload: {payload}", file=sys.stderr)
 			key, svg, factor = payload
+			window_id, state = key
 			try:
 				png_bytes = cairosvg.svg2png(svg, scale=factor)
 			except ValueError:
@@ -627,7 +1174,12 @@ def scaler_process_func(inq, outq, pipe=None):# {{{
 			img = PIL.Image.open(fobj)
 			if img.mode != "RGBA":
 				img = img.convert(mode="RGBA")
-			cropped_img, x_offset, y_offset = autocrop(img)
+			if state != None:
+				cropped_img, x_offset, y_offset = autocrop(img)
+			else:
+				# Do not crop base image
+				cropped_img, x_offset, y_offset = (img, 0, 0)
+			#print(f"processing key {key} factor {factor} output {cropped_img.width}x{cropped_img.height} offset {x_offset},{y_offset}")
 			img_packet = [cropped_img.tobytes(), cropped_img.width, cropped_img.height, x_offset, y_offset]
 			outq.put([key, img_packet, factor])
 			if pipe is not None:
@@ -636,12 +1188,105 @@ def scaler_process_func(inq, outq, pipe=None):# {{{
 			break
 # }}}
 
+class MisterVizStub:
+	def __init__(self, debug=False):
+		self.res_lookup = {}
+		self.procs = []
+		self.windows = {}
+		self.debug = debug
+		self.in_shutdown = False
+		self.scaler = MultiprocSvgScaler(process_count=1)
+		self.scaler.connect("result", self.scaler_handler)
+		yaml_basedir = get_yaml_basedir()
+		print(f"yaml basedir: {yaml_basedir}")
+		if not os.path.exists(yaml_basedir):
+			print(f"yaml basedir not found, creating it.")
+			os.makedirs(yaml_basedir)
+		yaml_files = get_yaml_files(yaml_basedir)
+		print(f"yaml files: {yaml_files}")
+		if len(yaml_files) == 0:
+			print(f"No YAML files found in {yaml_basedir}! Put some YAML and SVG files in there and try running me again.")
+
+		resources = {}
+		for yaml_file in yaml_files:
+			try:
+				resource = MisterVizResourceMap(yaml_file)
+				if not resource.config['primary']:
+					continue
+				#if resource.config['name'] not in resources:
+				#	resources[resource.config['name']] = {}
+				if resource.name is not None:
+					print(f"Found resource \"{resource.name}\"")
+					resources[resource.name] = resource
+			except Exception as e:
+				print(f"Error occurred trying to parse {yaml_file}:")
+				for line in traceback.format_exc().splitlines():
+					print(f"  exception: {line}")
+
+		self.resources = resources
+
+		for rname in self.resources:
+			res = self.resources[rname]
+			config = res.config
+			if config['vid'] not in self.res_lookup:
+				self.res_lookup[config['vid']] = {}
+			if config['pid'] not in self.res_lookup[config['vid']]:
+				self.res_lookup[config['vid']][config['pid']] = res
+	def scaler_handler(self, scaler, payload):# {{{
+		#print("scaler_handler()")
+		key, pixbuf, x_offset, y_offset, factor = payload
+		key, state = key
+		#key = f"{vid:04x}:{pid:04x}"
+		#print(f"key: {key}")
+		if key in self.windows:
+			print("Found window")
+			self.windows[key].pixbuf_receive_handler(state, pixbuf, x_offset, y_offset, factor)
+# }}}
+	def shutdown(self, *args):# {{{
+		if not self.in_shutdown:
+			self.in_shutdown = True
+			print("shutdown() called", file=sys.stderr)
+			#self.disconnect()
+			self.scaler.shutdown()
+			for proc in self.procs:
+				if isinstance(proc, subprocess.Popen):
+					if proc.poll() is None:
+						proc.terminate()
+				else:
+					raise ValueError("unknown proc type: {}".format(proc))
+			for proc in list(self.procs):
+				if isinstance(proc, subprocess.Popen):
+					if proc.poll() is not None:
+						self.procs.remove(proc)
+				else:
+					raise ValueError("unknown proc type: {}".format(proc))
+			if len(self.procs) > 0:
+				GLib.timeout_add(100, self.murder_handler)
+			else:
+				Gtk.main_quit()
+	# }}}
+	def sigint_handler(self, sig, frame):
+		print(f"Signal {sig} caught!", file=sys.stderr)
+		self.shutdown()
+	def murder_handler(self):# {{{
+		for proc in self.procs:
+			if isinstance(proc, subprocess.Popen):
+				proc.kill()
+			else:
+				raise ValueError("unknown proc type: {}".format(proc))
+		Gtk.main_quit()
+		return False
+	# }}}
+
+
 class MisterViz:# {{{
 	"""
 	This is the primary piece of code for mister_viz.
 	"""
-	def __init__(self, hostname, do_window=True, debug=False, log_file=None):# {{{
+	def __init__(self, hostname, do_window=True, do_viz=True, debug=False, log_file=None, ptt_state=None):# {{{
 		self.hostname = hostname
+		self.do_window = do_window
+		self.do_viz = do_viz
 		self.sock = None
 		self.debug = debug
 		self.log_file = log_file
@@ -649,11 +1294,13 @@ class MisterViz:# {{{
 		self.connection_status = "disconnected"
 		self.connect_handle = None
 		self.socket_handle = None
+		self.in_shutdown = False
 		if self.hostname is not None:
 			self.connect_handle = GLib.idle_add(self.connect_handler)
 		self.window = None
 		self.seen_window = None
 		self.windows = {}
+		self.event_handlers = {}
 		self.res_lookup = {}
 		self.seen_events = {}
 		# keepalive_state:
@@ -661,6 +1308,7 @@ class MisterViz:# {{{
 		# * "wait" - waiting for pong (keepalive handle is for timer to detect timeout)
 		self.keepalive_state = None
 		self.keepalive_handle = None
+		self.ptt_state = ptt_state
 
 
 		if sys.platform == "win32":
@@ -685,19 +1333,41 @@ class MisterViz:# {{{
 		self.scaler.connect("result", self.scaler_handler)
 
 
-		if do_window:
+		if self.do_window:
 			self.window = Gtk.Window()
 			self.window.connect("destroy", self.ownwindow_destroy_handler)
 			vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+
 			hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-			hbox.pack_start(Gtk.Label(label="Host:"), False, False, 0)
+			label = Gtk.Label()
+			label.set_text("Host:")
+			tooltip_text = "The hostname or IP address of the MiSTer to connect to"
+			label.set_tooltip_text(tooltip_text)
+			hbox.pack_start(label, False, False, 0)
 			self.hostname_entry = Gtk.Entry()
+			self.hostname_entry.set_tooltip_text(tooltip_text)
 			self.hostname_entry.connect("activate", self.connect_button_handler)
 			hbox.pack_start(self.hostname_entry, False, False, 0)
 			self.connect_button = Gtk.Button(label="Connect")
 			self.connect_button.connect("clicked", self.connect_button_handler)
 			hbox.pack_start(self.connect_button, False, False, 0)
 			vbox.pack_start(hbox, False, False, 0)
+
+			hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+			label = Gtk.Label()
+			label.set_text("Logfile:")
+			tooltip_text = "The name of the file to write input events to. Leave blank to auto-generate based on the current time."
+			label.set_tooltip_text(tooltip_text)
+			hbox.pack_start(label, False, False, 0)
+			self.logfile_entry = Gtk.Entry()
+			self.logfile_entry.set_tooltip_text(tooltip_text)
+			self.logfile_entry.connect("activate", self.logfile_entry_activate_handler)
+			hbox.pack_start(self.logfile_entry, False, False, 0)
+			self.logfile_switch = Gtk.Switch()
+			self.logfile_switch.connect("state-set", self.logfile_switch_handler)
+			hbox.pack_start(self.logfile_switch, False, False, 0)
+			vbox.pack_start(hbox, False, False, 0)
+
 			sw = Gtk.ScrolledWindow()
 			tv = Gtk.TextView()
 			tv.set_editable(False)
@@ -706,6 +1376,7 @@ class MisterViz:# {{{
 			self.textbuf = tv.get_buffer()
 			self.textbuf_max_lines = 10000
 			vbox.pack_start(sw, True, True, 0)
+
 			hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
 			but = Gtk.Button(label="Clear")
 			but.connect("clicked", self.clear_button_handler)
@@ -722,6 +1393,7 @@ class MisterViz:# {{{
 			but.connect("clicked", self.quit_button_handler)
 			hbox.pack_start(but, True, True, 0)
 			vbox.pack_start(hbox, False, False, 0)
+
 			self.window.add(vbox)
 			self.window.resize(640, 480)
 			self.window.show_all()
@@ -747,61 +1419,63 @@ class MisterViz:# {{{
 
 		if self.log_file is not None:
 			print(f"Logging input events to {self.log_file}")
-		controller_resources = {}
-		# Read all yaml files in the script dir except those that start with '_'
-		if sys.platform == "win32":
-			yaml_basedir="c:\\mister_viz"
-			import winreg
-			software_key = winreg.OpenKeyEx(winreg.HKEY_CURRENT_USER, "SOFTWARE\\", access=winreg.KEY_READ | winreg.KEY_WRITE)
-			vendor_key = winreg.CreateKeyEx(software_key, "Interlaced", access=winreg.KEY_READ | winreg.KEY_WRITE)
-			product_key = winreg.CreateKeyEx(vendor_key, "MiSTer Viz", access=winreg.KEY_READ | winreg.KEY_WRITE)
-			try:
-				last_host = winreg.QueryValueEx(product_key, "last_host")[0]
-				self.hostname_entry.set_text(last_host)
-			except FileNotFoundError:
-				pass
-			product_key.Close()
-			vendor_key.Close()
-			software_key.Close()
-		yaml_basedir = get_yaml_basedir()
-		print(f"yaml basedir: {yaml_basedir}")
-		if not os.path.exists(yaml_basedir):
-			print(f"yaml basedir not found, creating it.")
-			os.makedirs(yaml_basedir)
-		yaml_files = get_yaml_files(yaml_basedir)
-		print(f"yaml files: {yaml_files}")
-		if len(yaml_files) == 0:
-			print(f"No YAML files found in {yaml_basedir}! Put some YAML and SVG files in there and try running me again.")
+		if self.do_viz:
+			# Read all yaml files in the script dir except those that start with '_'
+			if sys.platform == "win32":
+				yaml_basedir="c:\\mister_viz"
+				import winreg
+				software_key = winreg.OpenKeyEx(winreg.HKEY_CURRENT_USER, "SOFTWARE\\", access=winreg.KEY_READ | winreg.KEY_WRITE)
+				vendor_key = winreg.CreateKeyEx(software_key, "Interlaced", access=winreg.KEY_READ | winreg.KEY_WRITE)
+				product_key = winreg.CreateKeyEx(vendor_key, "MiSTer Viz", access=winreg.KEY_READ | winreg.KEY_WRITE)
+				try:
+					last_host = winreg.QueryValueEx(product_key, "last_host")[0]
+					self.hostname_entry.set_text(last_host)
+				except FileNotFoundError:
+					pass
+				product_key.Close()
+				vendor_key.Close()
+				software_key.Close()
+			yaml_basedir = get_yaml_basedir()
+			print(f"yaml basedir: {yaml_basedir}")
+			if not os.path.exists(yaml_basedir):
+				print(f"yaml basedir not found, creating it.")
+				os.makedirs(yaml_basedir)
+			yaml_files = get_yaml_files(yaml_basedir)
+			print(f"yaml files: {yaml_files}")
+			if len(yaml_files) == 0:
+				print(f"No YAML files found in {yaml_basedir}! Put some YAML and SVG files in there and try running me again.")
 
-		resources = {}
-		for yaml_file in yaml_files:
-			try:
-				resource = ControllerResources(yaml_file)
-				if resource.config['name'] not in resources:
-					resources[resource.config['name']] = {}
-				print(f"Found resource \"{resource.config['name']}\"")
-				resources[resource.config['name']] = resource
-			except Exception as e:
-				print(f"Error occurred trying to parse {yaml_file}:")
-				for line in traceback.format_exc().splitlines():
-					print(f"  exception: {line}")
+			resources = {}
+			for yaml_file in yaml_files:
+				try:
+					resource = MisterVizResourceMap(yaml_file)
+					if not resource.config['primary']:
+						continue
+					if resource.config['name'] not in resources:
+						resources[resource.config['name']] = {}
+					print(f"Found resource \"{resource.config['name']}\"")
+					resources[resource.config['name']] = resource
+				except Exception as e:
+					print(f"Error occurred trying to parse {yaml_file}:")
+					for line in traceback.format_exc().splitlines():
+						print(f"  exception: {line}")
 
-		self.resources = resources
+			self.resources = resources
 
-		for rname in self.resources:
-			res = self.resources[rname]
-			config = res.config
-			if config['vid'] not in self.res_lookup:
-				self.res_lookup[config['vid']] = {}
-			if config['pid'] not in self.res_lookup[config['vid']]:
-				self.res_lookup[config['vid']][config['pid']] = res
+			for rname in self.resources:
+				res = self.resources[rname]
+				config = res.config
+				if config['vid'] not in self.res_lookup:
+					self.res_lookup[config['vid']] = {}
+				if config['pid'] not in self.res_lookup[config['vid']]:
+					self.res_lookup[config['vid']][config['pid']] = res
 # }}}
 	def scaler_handler(self, scaler, payload):# {{{
 		key, pixbuf, x_offset, y_offset, factor = payload
-		vid, pid, state = key
-		key = f"{vid:04x}:{pid:04x}"
-		if key in self.windows:
-			self.windows[key].pixbuf_receive_handler(state, pixbuf, x_offset, y_offset, factor)
+		window_id, state = key
+		print(f"scaler handler handling {window_id}:{state}")
+		if window_id in self.windows:
+			self.windows[window_id].pixbuf_receive_handler(state, pixbuf, x_offset, y_offset, factor)
 # }}}
 	def window_print(self, *values, sep=' ', end='', file=None, **kwargs):# {{{
 		msg = sep.join([ str(x) for x in values ])
@@ -819,6 +1493,11 @@ class MisterViz:# {{{
 		vadj = self.scroll.get_vadjustment()
 		vadj.set_value(vadj.get_upper())
 # }}}
+	def logfile_entry_activate_handler(self, widget):
+		pass
+	def logfile_switch_handler(self, widget, event):
+		pass
+
 	def clear_button_handler(self, widget):# {{{
 		self.textbuf.delete(self.textbuf.get_start_iter(), self.textbuf.get_end_iter())
 # }}}
@@ -861,8 +1540,10 @@ class MisterViz:# {{{
 			GLib.source_remove(self.socket_handle)
 			self.socket_handle = None
 		# Reset button state on any open viz windows
-		for win in self.windows.values():
-			win.reset()
+		for handler in self.event_handlers.values():
+			handler.reset()
+		#for win in self.windows.values():
+		#	win.reset()
 		# Indicate in the logfile that a reset occurred.
 		if self.log_file is not None:
 			if self.log_fh is None:
@@ -1023,24 +1704,74 @@ class MisterViz:# {{{
 						self.log_fh = open(self.log_file, "a")
 					print(",".join([ str(x) for x in [local_timestamp, tv_sec, tv_usec, inputno, player_id, vid_text, pid_text, event.type, event.code, event.value] ]), file=self.log_fh)
 
-				if key in self.windows:
-					win = self.windows[key]
+				if key in self.event_handlers:
+					handler = self.event_handlers[key]
 					ev_type = ecodes.EV[event.type]
 					if ev_type == 'EV_SYN':
-						win.apply_event_queue()
+						handler.apply_event_queue()
+						handler.set_dirty()
 					else:
-						win.event_queue.append(event)
+						handler.append(event)
+				#if key in self.windows:
+				#	win = self.windows[key]
+				#	ev_type = ecodes.EV[event.type]
+				#	if ev_type == 'EV_SYN':
+				#		win.apply_event_queue()
+				#	else:
+				#		win.event_queue.append(event)
 				else:
 					if vid in self.res_lookup:
 						if pid in self.res_lookup[vid]:
 							print(f"Found resource for vid/pid {vid:04x}:{pid:04x}, instantiating window")
-							win = MisterVizWindow(self.res_lookup[vid][pid], self)
+							res = self.res_lookup[vid][pid]
+							win = MisterVizWindow(parent=self, controller_resource=res, window_id=key)
 							self.windows[key] = win
 							win.connect("destroy", self.window_destroy_handler)
-							if 'ptt' in win.res.config and self.ptt is not None:
-								ptt_elem = win.res.config['ptt']
-								if ptt_elem in win.res.buttons:
-									win.res.buttons[ptt_elem].ptt = self.ptt
+							handler = MisterVizEventHandler(controller_resource=res)
+							self.event_handlers[key] = handler
+							if self.ptt_state is not None:
+								ptt_widget = None
+								frags = self.ptt_state.split(":")
+								if len(frags) == 5:
+									if res.name is not None and frags[0].lower() == res.name.lower():
+										ptt_widget = JackPushToTalk()
+										ptt_args = frags[1:]
+								elif len(frags) == 6:
+									if frags[0] == f"{vid:04x}" and frags[1] == f"{pid:04x}":
+										ptt_widget = JackPushToTalk()
+										ptt_args = frags[2:]
+								else:
+									raise RuntimeError("Incorrect number of frags for ptt_state!")
+
+								if ptt_widget is not None:
+									print(f"Using this resource as a push-to-talk widget.")
+									ptt_swtype = ptt_args[0]
+									ptt_swname = ptt_args[1]
+									ptt_minval = int(ptt_args[2])
+									ptt_maxval = int(ptt_args[3])
+									print(f"ptt_swtype: {ptt_swtype}")
+									print(f"ptt_swname: {ptt_swname}")
+									print(f"ptt_minval: {ptt_minval}")
+									print(f"ptt_maxval: {ptt_maxval}")
+									if ptt_swtype == 'axis':
+										control = handler.res.svg_res.axes[ptt_swname]
+									elif ptt_swtype == 'button':
+										control = handler.res.svg_res.buttons[ptt_swname]
+
+									def ptt_handler(widget):
+										print(f"ptt_handler ({control.value})")
+										if control.value >= ptt_minval and control.value <= ptt_maxval:
+											ptt_widget.set_value(True)
+										else:
+											ptt_widget.set_value(False)
+
+									handler.connect("dirty", ptt_handler)
+
+							def dirty_handler(widget):
+								win.trigger_draw()
+								widget.reset_dirty()
+
+							handler.connect("dirty", dirty_handler)
 
 				if self.window:
 					update_seen_window = False
@@ -1098,32 +1829,39 @@ class MisterViz:# {{{
 			key = f"{window.res.config['vid']:04x}:{window.res.config['pid']:04x}"
 			if key in self.windows:
 				del self.windows[key]
+				del self.event_handlers[key]
 		elif isinstance(window, MisterSeenEventsWindow):
 			if self.seen_window is not None:
 				self.seen_window = None
 		if self.window == None and self.seen_window is None and len(self.windows) == 0:
 			self.shutdown()
 # }}}
-	def shutdown(self):# {{{
-		self.disconnect()
-		self.scaler.shutdown()
-		for proc in self.procs:
-			if isinstance(proc, subprocess.Popen):
-				if proc.poll() is None:
-					proc.terminate()
+	def shutdown(self, *args):# {{{
+		if not self.in_shutdown:
+			self.in_shutdown = True
+			print("shutdown() called", file=sys.stderr)
+			self.disconnect()
+			self.scaler.shutdown()
+			for proc in self.procs:
+				if isinstance(proc, subprocess.Popen):
+					if proc.poll() is None:
+						proc.terminate()
+				else:
+					raise ValueError("unknown proc type: {}".format(proc))
+			for proc in list(self.procs):
+				if isinstance(proc, subprocess.Popen):
+					if proc.poll() is not None:
+						self.procs.remove(proc)
+				else:
+					raise ValueError("unknown proc type: {}".format(proc))
+			if len(self.procs) > 0:
+				GLib.timeout_add(100, self.murder_handler)
 			else:
-				raise ValueError("unknown proc type: {}".format(proc))
-		for proc in list(self.procs):
-			if isinstance(proc, subprocess.Popen):
-				if proc.poll() is not None:
-					self.procs.remove(proc)
-			else:
-				raise ValueError("unknown proc type: {}".format(proc))
-		if len(self.procs) > 0:
-			GLib.timeout_add(100, self.murder_handler)
-		else:
-			Gtk.main_quit()
+				Gtk.main_quit()
 	# }}}
+	def sigint_handler(self, sig, frame):
+		print(f"Signal {sig} caught!", file=sys.stderr)
+		self.shutdown()
 	def murder_handler(self):# {{{
 		for proc in self.procs:
 			if isinstance(proc, subprocess.Popen):
@@ -1134,13 +1872,16 @@ class MisterViz:# {{{
 		return False
 	# }}}
 # }}}
-def svg_scale_to_pixbuf(svg, factor):# {{{
+def svg_scale_to_pixbuf(svg, factor, crop=True):# {{{
 	png_bytes = cairosvg.svg2png(svg, scale=factor)
 	fobj = io.BytesIO(png_bytes)
 	img = PIL.Image.open(fobj)
 	if img.mode != "RGBA":
 		img = img.convert(mode="RGBA")
-	cropped_img, x_offset, y_offset = autocrop(img)
+	if crop:
+		cropped_img, x_offset, y_offset = autocrop(img)
+	else:
+		cropped_img, x_offset, y_offset = (img, 0, 0)
 	cropped_img_bytes = cropped_img.tobytes()
 	pixbuf = GdkPixbuf.Pixbuf.new_from_bytes(GLib.Bytes(cropped_img_bytes), GdkPixbuf.Colorspace.RGB, True, 8, cropped_img.width, cropped_img.height, cropped_img.width * 4)
 	ret = proppadict()
@@ -1152,7 +1893,7 @@ def svg_scale_to_pixbuf(svg, factor):# {{{
 	return ret
 # }}}
 class MisterVizRenderer:# {{{
-	def __init__(self, controller_resource, width=None):# {{{
+	def __init__(self, controller_resource, width=None, bgcolor=(1, 0, 1, 1)):# {{{
 		self.res = controller_resource
 		self.pixbufs = {}
 		self.event_queue = []
@@ -1160,16 +1901,17 @@ class MisterVizRenderer:# {{{
 			self.scalefactor = 1.0
 		else:
 			# Perform resize on None for scalefactor 1.0 to find native dimensions
-			print("Rendering initial", file=sys.stderr)
-			native = svg_scale_to_pixbuf(self.res.svgs[None], 1.0)
+			#print("Rendering initial", file=sys.stderr)
+			native = svg_scale_to_pixbuf(self.res.svgs[None], 1.0, crop=False)
 			# Determine scalefactor based on requested width
 			new_dims = resize_aspect(native.width, native.height, width=width)
 			self.scalefactor = new_dims[2]
+		self.bgcolor = bgcolor
 		
 		# Scale pixbufs
 		for key in self.res.svgs:
-			print(f"Rendering {key}", file=sys.stderr)
-			pixbuf = svg_scale_to_pixbuf(self.res.svgs[key], self.scalefactor)
+			#print(f"Rendering {key} (crop {key is not None})", file=sys.stderr)
+			pixbuf = svg_scale_to_pixbuf(self.res.svgs[key], self.scalefactor, key is not None)
 			self.pixbufs[key] = [pixbuf.pixbuf, pixbuf.x_offset, pixbuf.y_offset]
 	# }}}
 	def apply_event_queue(self):# {{{
@@ -1220,14 +1962,17 @@ class MisterVizRenderer:# {{{
 			self.event_queue.append(event)
 	# }}}
 	def render(self):# {{{
-		surface = cairo.ImageSurface(cairo.FORMAT_RGB24, self.pixbufs[None][0].get_width(), self.pixbufs[None][0].get_height())
+		surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.pixbufs[None][0].get_width(), self.pixbufs[None][0].get_height())
 		cr = cairo.Context(surface)
-		cr.set_source_rgba(1, 0, 1, 1)
-		cr.paint()
+		if self.bgcolor is not None:
+			cr.set_source_rgba(*self.bgcolor)
+			cr.paint()
 		Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[None][0], self.pixbufs[None][1], self.pixbufs[None][2])
 		cr.paint()
 		allstate = set()
 		for x in self.res.buttons.values():
+			if x.on_stick:
+				continue
 			allstate |= x.get_state()
 		for x in self.res.axes.values():
 			allstate |= x.get_state()
@@ -1241,12 +1986,12 @@ class MisterVizRenderer:# {{{
 
 		for k, stick in self.res.sticks.items():
 			if stick.has_button:
-				if k in allstate:
-					pixkey = f"{k} active"
+				if stick.button.value:
+					pixkey = f"button:{k}"
 				else:
-					pixkey = f"{k} idle"
+					pixkey = f"stick:{k}"
 			else:
-				pixkey = k
+				pixkey = f"stick:{k}"
 			if pixkey in self.pixbufs:
 				offsets = {
 					'x': 0,
@@ -1255,15 +2000,15 @@ class MisterVizRenderer:# {{{
 				for off in offsets:
 					axis = getattr(stick, f"{off}_axis")
 					if axis is not None and axis.value is not None:
-						offsets[off] = translate_constrainedint(axis.value, axis.minval, axis.maxval, axis.minpos, axis.maxpos)
+						offsets[off] = translate_constrainedint(axis.value, axis.min_value, axis.max_value, axis.min_pos, axis.max_pos)
 				if stick.x_axis is not None and stick.y_axis is not None:
 					circularize = True
-					for attr in ['minval', 'maxval', 'minpos', 'maxpos']:
+					for attr in ['min_value', 'max_value', 'min_pos', 'max_pos']:
 						if getattr(stick.x_axis, attr) != getattr(stick.y_axis, attr):
 							circularize= False
 							break
 					if circularize:
-						maxrange = stick.x_axis.maxpos - stick.x_axis.minpos
+						maxrange = stick.x_axis.max_pos - stick.x_axis.min_pos
 						angle = math.atan2(offsets['y'], offsets['x'])
 						magnitude = math.sqrt(offsets['x'] * offsets['x'] + offsets['y'] * offsets['y'])
 						if magnitude > (maxrange // 2):
@@ -1278,27 +2023,102 @@ class MisterVizRenderer:# {{{
 # }}}
 
 
-		
-		
-class MisterVizWindow(Gtk.Window):# {{{
-	def __init__(self, controller_resource, parent):# {{{
+class MisterVizEventHandler(GObject.GObject):
+	__gsignals__ = {
+		"dirty": (GObject.SignalFlags.RUN_FIRST, None, []),
+	}
+	def __init__(self, controller_resource=None):
 		super().__init__()
 		self.res = controller_resource
-		self.parent = parent
 		self.event_queue = []
-		if 'name' in self.res.config:
-			self.set_title(self.res.config['name'])
-		if 'scale' in self.res.config:
-			self.scalefactor = self.res.config['scale']
+		self.dirty_flag = False
+	def reset_dirty(self):
+		self.dirty_flag = False
+	def set_dirty(self):
+		if not self.dirty_flag:
+			self.dirty_flag = True
+			self.emit("dirty")
+	def apply_event_queue(self):# {{{
+		print(f"apply_event_queue ({len(self.event_queue)})")
+		for event in self.event_queue:
+			ev_type = ecodes.EV[event.type]
+			if ev_type == 'EV_KEY':
+				if event.code in ecodes.KEY:
+					ev_code = ecodes.KEY[event.code]
+				else:
+					ev_code = ecodes.BTN[event.code]
+				if isinstance(ev_code, str):
+					ev_code = [ev_code]
+				for code in ev_code:
+					if code in self.res.buttons:
+						#print(f"code {code} value {event.value}")
+						self.res.buttons[code].set_value(event.value)
+						break
+			elif ev_type == 'EV_ABS':
+				ev_code = ecodes.ABS[event.code]
+				if ev_code in self.res.axes:
+					self.res.axes[ev_code].set_value(event.value)
+			elif ev_type == 'EV_FF':
+				if hasattr(self.res, "rumble_handler"):
+					self.res.rumble_handler(event)
+				#rumble_delta = 0
+				#if self.res.last_rumble is not None:
+				#	rumble_delta = event.timestamp() - self.res.last_rumble
+				#print(f"RUMBURU {rumble_delta}", file=sys.stderr)
+				#self.res.last_rumble = event.timestamp()
+		self.event_queue = []
+	# }}}
+	def append(self, event):
+		self.event_queue.append(event)
+	def reset(self, event=None):
+		self.res.connected = False
+		try:
+			for widget in list(self.res.buttons.values()) + list(self.res.axes.values()) + list(self.res.sticks.values()):
+				widget.reset()
+		except Exception as e:
+			for line in traceback.format_exc().splitlines():
+				print(f"exception: {line}")
+
+
+
+
+class MisterVizWindow(Gtk.Window):# {{{
+	def __init__(self, parent, window_id=None, controller_resource=None, permit_alpha=True):# {{{
+		super().__init__()
+		self.res = controller_resource
+		self.res.rumble_handler = self.rumble_handler
+		self.parent = parent
+		self.permit_alpha = permit_alpha
+		self.event_queue = []
+		self.rumble_vect = 0.0
+		self.rumble_handler_source = None
+		self.global_x_offset = 0
+		self.global_y_offset = 0
+		if window_id is None:
+			self.window_id = base64.b64encode(random.randbytes(32)).decode()
+		else:
+			self.window_id = window_id
+
+		if hasattr(self.res, 'name'):
+			self.set_title(self.res.name)
+		if hasattr(self.res, 'scale'):
+			self.scalefactor = self.res.scale
 		else:
 			self.scalefactor = 1.0
+		self.connect("screen-changed", self.screen_changed_handler)
+		# This needs to be set for transparency, or everything goes all Doom hall of mirrors.
+		self.set_app_paintable(True)
+		# screen_changed_handler needs to be manually called at least once to enable transparency.
+		self.screen_changed_handler(self, None)
+
 		#self.pixbufs = dict([ [x, None] for x in self.res.svgs.keys() ])
 		self.pixbufs = {}
 		# Resize_handler_id and resize_timer_id store GLib sources related to window resize operations.
 		self.resize_handler_id = None
 		self.resize_timer_id = None
 		# Submit an SVG resize request to the scaler to find our initial pixbuf dimensions.
-		self.parent.scaler.scale_svg([self.res.vid, self.res.pid, None], self.res.svgs[None], 1.0)
+		#print("Kicking off scaler")
+		self.parent.scaler.scale_svg([self.window_id, None], self.res.svgs[None], 1.0)
 		self.inflight = True
 
 		#self.viz_width = self.pixbufs[None].get_width()
@@ -1318,7 +2138,17 @@ class MisterVizWindow(Gtk.Window):# {{{
 		self.show_all()
 		if DUMP_RENDERS:
 			self.res.dump_svgs()
-		self.reset()
+	# }}}
+	def screen_changed_handler(self, widget, old_screen):# {{{
+		screen = widget.get_screen()
+		visual = screen.get_rgba_visual()
+
+		if visual is None or not self.permit_alpha:
+			self.has_alpha = False
+			visual = screen.get_system_visual()
+		else:
+			self.has_alpha = True
+		widget.set_visual(visual)
 	# }}}
 	def pixbuf_receive_handler(self, key, pixbuf, x_offset, y_offset, scalefactor):# {{{
 		print(f"Receiving pixbuf for state: {key} (scale factor {scalefactor})")
@@ -1329,12 +2159,12 @@ class MisterVizWindow(Gtk.Window):# {{{
 				# which is of scalefactor 1.0. We use this pixbuf's dimensions to set viz_width and viz_height.
 				self.viz_width = pixbuf.get_width()
 				self.viz_height = pixbuf.get_height()
-				print(f"Setting viz dimensions to {self.viz_width}x{self.viz_height}")
+				#print(f"Setting viz dimensions to {self.viz_width}x{self.viz_height}")
 				if self.scalefactor != 1.0:
 					# If our actual desired scalefactor isn't 1.0, resubmit a scale request for the proper
 					# desired scalefactor.
-					print(f"Resubmitting SVG for scalefactor {self.scalefactor}")
-					self.parent.scaler.scale_svg([self.res.vid, self.res.pid, None], self.res.svgs[None], self.scalefactor)
+					#print(f"Resubmitting SVG for scalefactor {self.scalefactor}")
+					self.parent.scaler.scale_svg([self.window_id, None], self.res.svgs[None], self.scalefactor)
 					return
 			self.pixbufs = {}
 			self.pixbufs[key] = [pixbuf, x_offset, y_offset]
@@ -1350,12 +2180,14 @@ class MisterVizWindow(Gtk.Window):# {{{
 		else:
 			if scalefactor != self.scalefactor:
 				return
-			print(f"Adding pixbuf for state {key}")
+			#print(f"Adding pixbuf for state {key}")
 			self.pixbufs[key] = [pixbuf, x_offset, y_offset]
 
 		next_pixbuf_key = None
 		allstate = set()
 		for x in self.res.buttons.values():
+			if x.on_stick:
+				continue
 			allstate |= x.get_state()
 		for x in self.res.axes.values():
 			allstate |= x.get_state()
@@ -1364,12 +2196,12 @@ class MisterVizWindow(Gtk.Window):# {{{
 		# Populate sticks first
 		for k, stick in self.res.sticks.items():
 			if stick.has_button:
-				if k in allstate:
-					pixkey = f"{k} active"
+				if stick.button.value:
+					pixkey = f"button:{k}"
 				else:
-					pixkey = f"{k} idle"
+					pixkey = f"stick:{k}"
 			else:
-				pixkey = k
+				pixkey = f"stick:{k}"
 			if pixkey not in self.pixbufs:
 				next_pixbuf_key = pixkey
 		# Done with sticks? See if there's anything currently being pressed we need to populate.
@@ -1386,7 +2218,7 @@ class MisterVizWindow(Gtk.Window):# {{{
 					break
 
 		if next_pixbuf_key is not None:
-			self.parent.scaler.scale_svg([self.res.vid, self.res.pid, next_pixbuf_key], self.res.svgs[next_pixbuf_key], self.scalefactor)
+			self.parent.scaler.scale_svg([self.window_id, next_pixbuf_key], self.res.svgs[next_pixbuf_key], self.scalefactor)
 # }}}
 	def reset(self):# {{{
 		self.res.connected = False
@@ -1398,30 +2230,8 @@ class MisterVizWindow(Gtk.Window):# {{{
 			for line in traceback.format_exc().splitlines():
 				print(f"exception: {line}")
 	# }}}
-	def apply_event_queue(self):# {{{
-		for event in self.event_queue:
-			ev_type = ecodes.EV[event.type]
-			if ev_type == 'EV_KEY':
-				if event.code in ecodes.KEY:
-					ev_code = ecodes.KEY[event.code]
-				else:
-					ev_code = ecodes.BTN[event.code]
-				if isinstance(ev_code, str):
-					ev_code = [ev_code]
-				for code in ev_code:
-					if code in self.res.buttons:
-						#print(f"code {code} value {event.value}")
-						self.res.buttons[code].set_value(event.value)
-						break
-			elif ev_type == 'EV_ABS':
-				ev_code = ecodes.ABS[event.code]
-				if ev_code in self.res.axes:
-					self.res.axes[ev_code].set_value(event.value)
-		self.event_queue = []
-		self.darea.queue_draw()
-	# }}}
 	def darea_realize_handler(self, widget):# {{{
-		print("darea_realize_handler")
+		#print("darea_realize_handler")
 		self.connect("size-allocate", self.resize_handler)
 # }}}
 	def resize_handler(self, widget, other):# {{{
@@ -1437,7 +2247,7 @@ class MisterVizWindow(Gtk.Window):# {{{
 			self.win_dims = curr_dims
 			new_dims = resize_aspect(self.viz_width, self.viz_height, width=curr_dims[0])
 			self.scalefactor = new_dims[2]
-			self.parent.scaler.scale_svg([self.res.vid, self.res.pid, None], self.res.svgs[None], self.scalefactor)
+			self.parent.scaler.scale_svg([self.window_id, None], self.res.svgs[None], self.scalefactor)
 # }}}
 	def update_buttonstate(self, new_state):# {{{
 		self.buttonstate = set()
@@ -1446,37 +2256,81 @@ class MisterVizWindow(Gtk.Window):# {{{
 				self.buttonstate.add(v)
 		self.darea.queue_draw()
 	# }}}
+	def trigger_draw(self, *args):# {{{
+		self.darea.queue_draw()
+	# }}}
+	def rumble_handler(self, event):
+		print("rumble handler", file=sys.stderr)
+		if self.res.last_rumble is not None:
+			print(event.timestamp() - self.res.last_rumble, file=sys.stderr)
+			if event.timestamp() - self.res.last_rumble < (1 / 60):
+				print("rumble handler DENIED", file=sys.stderr)
+				return
+		self.res.last_rumble = event.timestamp()
+
+		self.global_x_offset, self.global_y_offset = plot_course((0, 0), random.random() * (math.pi * 2), 30)
+		#self.darea.queue_draw()
+		if self.rumble_handler_source is not None:
+			GLib.source_remove(self.rumble_handler_source)
+			self.rumble_handler_source = None
+		GLib.timeout_add(int(1000 / 10), self.rumble_finished_handler)
+	def rumble_finished_handler(self):
+		if self.rumble_handler_source is not None:
+			GLib.source_remove(self.rumble_handler_source)
+			self.rumble_handler_source = None
+		self.global_x_offset = 0
+		self.global_y_offset = 0
+		self.darea.queue_draw()
+
 	def draw_handler(self, widget, cr):# {{{
 		if self.parent.debug:
-			print("draw_handler begin")
+			print(f"{time.time()} draw_handler begin", file=sys.stderr)
 		try:
-			cr.set_source_rgba(1, 0, 1, 1)
+			if self.has_alpha:
+				cr.set_operator(cairo.OPERATOR_SOURCE)
+				cr.set_source_rgba(0, 0, 0, 0)
+			else:
+				cr.set_source_rgba(1, 0, 1, 1)
 			cr.paint()
+			cr.set_operator(cairo.OPERATOR_OVER)
 			if None not in self.pixbufs:
 				return
-			Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[None][0], self.pixbufs[None][1], self.pixbufs[None][2])
+			if self.res.has_rumble:
+				if self.res.rumbling:
+					print("RUMBLING!", file=sys.stderr)
+					self.res.rumbling = False
+					self.rumble_handler()
+
+			Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[None][0], self.pixbufs[None][1] + self.global_x_offset, self.pixbufs[None][2] + self.global_y_offset)
 			cr.paint()
 			allstate = set()
 			for x in self.res.buttons.values():
+				if x.on_stick:
+					continue
 				allstate |= x.get_state()
 			for x in self.res.axes.values():
 				allstate |= x.get_state()
 
 			for state in allstate:
 				if state in self.res.sticks:
+					#print(f"state {state} in self.res.sticks")
 					continue
 				if state in self.pixbufs:
-					Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[state][0], self.pixbufs[state][1], self.pixbufs[state][2])
+					#print(f"state {state} in self.pixbufs")
+					Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[state][0], self.pixbufs[state][1] + self.global_x_offset, self.pixbufs[state][2] + self.global_y_offset)
 					cr.paint()
+				else:
+					pass
+					#print(f"state {state} unhandled")
 
 			for k, stick in self.res.sticks.items():
 				if stick.has_button:
-					if k in allstate:
-						pixkey = f"{k} active"
+					if stick.button.value:
+						pixkey = f"button:{k}"
 					else:
-						pixkey = f"{k} idle"
+						pixkey = f"stick:{k}"
 				else:
-					pixkey = k
+					pixkey = f"stick:{k}"
 				if pixkey in self.pixbufs:
 					offsets = {
 						'x': 0,
@@ -1485,15 +2339,15 @@ class MisterVizWindow(Gtk.Window):# {{{
 					for off in offsets:
 						axis = getattr(stick, f"{off}_axis")
 						if axis is not None and axis.value is not None:
-							offsets[off] = translate_constrainedint(axis.value, axis.minval, axis.maxval, axis.minpos, axis.maxpos)
+							offsets[off] = translate_constrainedint(axis.value, axis.min_value, axis.max_value, axis.min_pos, axis.max_pos)
 					if stick.x_axis is not None and stick.y_axis is not None:
 						circularize = True
-						for attr in ['minval', 'maxval', 'minpos', 'maxpos']:
+						for attr in ['min_value', 'max_value', 'min_pos', 'max_pos']:
 							if getattr(stick.x_axis, attr) != getattr(stick.y_axis, attr):
 								circularize= False
 								break
 						if circularize:
-							maxrange = stick.x_axis.maxpos - stick.x_axis.minpos
+							maxrange = stick.x_axis.max_pos - stick.x_axis.min_pos
 							angle = math.atan2(offsets['y'], offsets['x'])
 							magnitude = math.sqrt(offsets['x'] * offsets['x'] + offsets['y'] * offsets['y'])
 							if magnitude > (maxrange // 2):
@@ -1501,13 +2355,13 @@ class MisterVizWindow(Gtk.Window):# {{{
 							offsets['x'] = magnitude * math.cos(angle)
 							offsets['y'] = magnitude * math.sin(angle)
 
-					Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[pixkey][0], (offsets['x'] * self.scalefactor) + self.pixbufs[pixkey][1], (offsets['y'] * self.scalefactor) + self.pixbufs[pixkey][2])
+					Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[pixkey][0], (offsets['x'] * self.scalefactor) + self.pixbufs[pixkey][1] + self.global_x_offset, (offsets['y'] * self.scalefactor) + self.pixbufs[pixkey][2] + self.global_y_offset)
 					cr.paint()
 		except Exception:
 			for line in traceback.format_exc().splitlines():
-				print(f"exception: {line}")
+				print(f"exception: {line}", file=sys.stderr)
 		if self.parent.debug:
-			print("draw_handler finish")
+			print(f"{time.time()} draw_handler finish", file=sys.stderr)
 
 	# }}}
 # }}}
@@ -1671,7 +2525,10 @@ if __name__ == '__main__':
 		parser.add_argument("hostname", default=None, nargs="?")
 		parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)
 		parser.add_argument("-n", "--no-window", action="store_false", dest="do_window", default=True, help="Don't create a main window")
+		parser.add_argument("-N", "--no-viz", action="store_false", dest="do_viz", default=True, help="Don't spawn visualization windows")
+		parser.add_argument("-c", "--console", action="store_true", dest="do_console", default=False, help="Spawn REPL on stdin/stdout")
 		parser.add_argument("-l", "--log-file", action="store", dest="log_file", default=None, help="Write events to log file LOG_FILE. Use magic name \":auto:\" to auto-create based on time and date.")
+		parser.add_argument("-p", "--ptt", action="store", dest="ptt_state", default=None, help="Use this state as the push-to-talk buttons Format: vid:pid:type:name:minval:maxval or controllername:type:name:minval:maxval")
 		args = parser.parse_args()
 		if args.log_file == ':auto:':
 			nao = datetime.datetime.now()
@@ -1679,12 +2536,16 @@ if __name__ == '__main__':
 			log_file = f"mister_viz__{naostr}.log"
 		else:
 			log_file = args.log_file
-		app = MisterViz(args.hostname, debug=args.debug, do_window=args.do_window, log_file=log_file)
+		app = MisterViz(args.hostname, debug=args.debug, do_window=args.do_window, do_viz=args.do_viz, log_file=log_file, ptt_state=args.ptt_state)
 	else:
 		app = MisterViz(None)
 
 	#if ser is None:
-	if sys.platform == "linux":
+	if sys.platform == "linux" and args.do_console:
 		import debugrepl, glib_editingline
-		cli = glib_editingline.CliInterpreter(Gtk, namespace=globals())
+		cli = glib_editingline.CliInterpreter(None, namespace=globals())
+		cli.connect("control-c", app.shutdown)
+	else:
+		import signal
+		signal.signal(signal.SIGINT, app.sigint_handler)
 	Gtk.main()

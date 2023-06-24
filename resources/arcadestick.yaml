@@ -1,0 +1,36 @@
+name: 8bitdo Arcade Stick
+vid: 0x045e
+pid: 0x028e
+svg: arcadestick.svg
+buttons:
+  BTN_A: a
+  BTN_B: b
+  BTN_MODE: heart
+  BTN_SELECT: select
+  BTN_START: start
+  BTN_TL: lb
+  BTN_TR: rb
+  BTN_X: x
+  BTN_Y: y
+axes:
+  ABS_HAT0X:
+    stick:
+      stick:
+        x:
+          min_value: -1
+          max_value: 1
+          default_value: 0
+  ABS_HAT0Y:
+    stick:
+      stick:
+        y:
+          min_value: -1
+          max_value: 1
+          default_value: 0
+  ABS_RZ:
+    binary:
+      rt: [255, 255]
+  ABS_Z:
+    binary:
+      lt: [255, 255]
+    ptt: [255, 255]

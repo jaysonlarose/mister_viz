@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!-- Created with Inkscape (http://www.inkscape.org/) -->
-
 <svg
    version="1.1"
    id="svg884"
@@ -9,6 +7,7 @@
    viewBox="0 0 602.87256 293.35699"
    sodipodi:docname="nes30pro.svg"
    inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
+   data-name="8BitDo NES30 Pro Controller"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -36,14 +35,14 @@
      inkscape:snap-midpoints="true"
      inkscape:snap-intersection-paths="true"
      inkscape:zoom="1.4492308"
-     inkscape:cx="284.97876"
-     inkscape:cy="100.7431"
+     inkscape:cx="160.08492"
+     inkscape:cy="100.39809"
      inkscape:window-width="3840"
-     inkscape:window-height="2134"
+     inkscape:window-height="2089"
      inkscape:window-x="0"
-     inkscape:window-y="0"
+     inkscape:window-y="34"
      inkscape:window-maximized="1"
-     inkscape:current-layer="layer1"
+     inkscape:current-layer="g17367"
      fit-margin-top="0"
      fit-margin-left="0"
      fit-margin-right="0"
@@ -140,7 +139,8 @@
        id="g17045"
        inkscape:label="select"
        style="display:none"
-       data-state="select">
+       data-state="select"
+       data-type="button">
       <path
          id="path17041"
          style="display:inline;fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.377953;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
@@ -151,7 +151,8 @@
        id="g17039"
        inkscape:label="start"
        style="display:none"
-       data-state="start">
+       data-state="start"
+       data-type="button">
       <path
          id="path17037"
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.377953;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
@@ -209,8 +210,11 @@
      id="layer13"
      inkscape:label="rstick idle"
      style="display:none"
-     data-state="rstick idle"
-     transform="translate(-19.24438,-182.7912)">
+     data-state="rstick"
+     transform="translate(-19.24438,-182.7912)"
+     data-type="stick"
+     data-extents-x="-30 30"
+     data-extents-y="-30 30">
     <circle
        style="display:inline;fill:#292929;fill-opacity:0.998382;stroke:#000000;stroke-width:0.394443;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
        id="path1292-3"
@@ -224,8 +228,9 @@
      id="g17787"
      inkscape:label="rstick active"
      style="display:none"
-     data-state="rstick active"
-     transform="translate(-19.24438,-182.7912)">
+     data-state="rstick"
+     transform="translate(-19.24438,-182.7912)"
+     data-type="button">
     <circle
        style="display:inline;fill:#ff0000;fill-opacity:0.998382;stroke:#000000;stroke-width:0.394443;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
        id="circle17785"
@@ -239,8 +244,11 @@
      id="g17367"
      inkscape:label="lstick idle"
      style="display:none"
-     data-state="lstick idle"
-     transform="translate(-19.24438,-182.7912)">
+     data-state="lstick"
+     transform="translate(-19.24438,-182.7912)"
+     data-type="stick"
+     data-extents-x="-30 30"
+     data-extents-y="-30 30">
     <circle
        style="display:inline;fill:#292929;fill-opacity:1;stroke:#000000;stroke-width:0.394443;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
        id="circle17363"
@@ -253,8 +261,9 @@
      id="g17531"
      inkscape:label="lstick active"
      style="display:none"
-     data-state="lstick active"
-     transform="translate(-19.24438,-182.7912)">
+     data-state="lstick"
+     transform="translate(-19.24438,-182.7912)"
+     data-type="button">
     <circle
        style="display:inline;fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.394443;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
        id="circle17529"
@@ -295,7 +304,8 @@
        id="g16394"
        inkscape:label="l2"
        style="display:none"
-       data-state="l2">
+       data-state="l2"
+       data-type="button">
       <path
          id="path16390"
          style="display:inline;fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.448741;stop-color:#000000"
@@ -306,7 +316,8 @@
        id="g16404"
        inkscape:label="r2"
        style="display:none"
-       data-state="r2">
+       data-state="r2"
+       data-type="button">
       <path
          id="path16402"
          style="display:inline;fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.448741;stop-color:#000000"
@@ -317,7 +328,8 @@
        id="g16414"
        inkscape:label="l1"
        style="display:none"
-       data-state="l1">
+       data-state="l1"
+       data-type="button">
       <path
          id="path16406"
          style="display:inline;fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.448741;stop-color:#000000"
@@ -328,7 +340,8 @@
        id="g16424"
        inkscape:label="r1"
        style="display:none"
-       data-state="r1">
+       data-state="r1"
+       data-type="button">
       <path
          id="path16418"
          style="display:inline;fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.448741;stop-color:#000000"
@@ -379,7 +392,8 @@
        id="g15327"
        inkscape:label="up"
        style="display:none"
-       data-state="up">
+       data-state="up"
+       data-type="button">
       <path
          style="display:inline;fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.462963;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1"
          d="m 160.21674,258.78304 -5.07291,-5.0677 -5.06771,-5.07292 -5.07291,5.07292 -5.07292,5.0677 h 3.04167 v 10.14583 h 14.20312 v -10.14583 z m 0,0"
@@ -390,7 +404,8 @@
        id="g15577"
        inkscape:label="down"
        style="display:none"
-       data-state="down">
+       data-state="down"
+       data-type="button">
       <path
          style="display:inline;fill:#f53434;fill-opacity:1;stroke:#000000;stroke-width:0.462963;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1"
          d="m 160.21674,330.69445 -5.07291,5.07292 -5.06771,5.0729 -10.14583,-10.14582 h 3.04167 v -10.14062 h 14.20312 v 10.14062 z m 0,0"
@@ -401,7 +416,8 @@
        id="g15587"
        inkscape:label="left"
        style="display:none"
-       data-state="left">
+       data-state="left"
+       data-type="button">
       <path
          style="display:inline;fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.462963;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1"
          d="m 114.75843,284.40803 -5.07291,5.0677 -5.0677,5.07292 5.0677,5.07292 5.07291,5.0729 v -3.04688 h 10.14062 v -14.1979 h -10.14062 z m 0,0"
@@ -412,7 +428,8 @@
        id="g15597"
        inkscape:label="right"
        style="display:none"
-       data-state="right">
+       data-state="right"
+       data-type="button">
       <path
          style="display:inline;fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.462963;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1"
          d="m 185.59172,284.40803 5.07292,5.0677 5.0729,5.07292 -10.14582,10.14582 v -3.04688 H 175.4511 v -14.1979 h 10.14062 z m 0,0"
@@ -547,7 +564,8 @@
        id="g14982"
        inkscape:label="y"
        style="display:none"
-       data-state="y">
+       data-state="y"
+       data-type="button">
       <circle
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.342358;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;stop-color:#000000"
          id="circle14978"
@@ -560,7 +578,8 @@
        id="g14972"
        inkscape:label="x"
        style="display:none"
-       data-state="x">
+       data-state="x"
+       data-type="button">
       <circle
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.342358;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;stop-color:#000000"
          id="circle14964"
@@ -573,7 +592,8 @@
        id="g14962"
        inkscape:label="b"
        style="display:none"
-       data-state="b">
+       data-state="b"
+       data-type="button">
       <circle
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.342358;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;stop-color:#000000"
          id="circle14956"
@@ -586,7 +606,8 @@
        id="g14952"
        inkscape:label="a"
        style="display:none"
-       data-state="a">
+       data-state="a"
+       data-type="button">
       <circle
          style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.342358;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;stop-color:#000000"
          id="circle14950"

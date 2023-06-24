@@ -2,6 +2,7 @@ name: 8Bitdo Nes30 Pro 2 (USB)
 vid: 0x2dc8
 pid: 0x9015
 svg: nes30pro.svg
+primary: true
 ptt: BTN_TR2
 buttons:
   BTN_A: a
@@ -29,24 +30,28 @@ axes:
     stick:
       lstick:
         x:
-          - [0, -30]
-          - [255, 30]
+          min_value: 0
+          max_value: 255
+          default_value: 127
   ABS_Y:
     stick:
       lstick:
         y:
-          - [0, -30]
-          - [255, 30]
+          min_value: 0
+          max_value: 255
+          default_value: 127
   ABS_Z:
     stick:
       rstick:
         x:
-          - [0, -30]
-          - [255, 30]
+          min_value: 0
+          max_value: 255
+          default_value: 127
   ABS_RZ:
     stick:
       rstick:
         y:
-          - [0, -30]
-          - [255, 30]
+          min_value: 0
+          max_value: 255
+          default_value: 127
 

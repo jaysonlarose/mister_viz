@@ -2,6 +2,7 @@ name: JaysTech Jaguar Controller Adapter
 vid: 0x1a61
 pid: 0x2043
 svg: jaguar.svg
+primary: true
 buttons:
   JOYBUTTON_0: a
   JOYBUTTON_1: b

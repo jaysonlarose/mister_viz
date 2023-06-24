@@ -1,48 +1,28 @@
-name: 8Bitdo Pro 2
-vid: 0x2dc8
-pid: 0x6006
-svg: pro2.svg
+name: Nintendo Switch Pro Controller
+vid: 0xffff
+pid: 0xffff
+svg: procontroller.svg
 primary: true
 buttons:
+  BTN_UP: up
+  BTN_DOWN: down
+  BTN_LEFT: left
+  BTN_RIGHT: right
   BTN_A: a
   BTN_B: b
   BTN_X: x
   BTN_Y: y
   BTN_TL: l
   BTN_TR: r
-  BTN_SELECT: select
-  BTN_START: start
+  BTN_LZ: zl
+  BTN_RZ: zr
+  BTN_MINUS: "-"
+  BTN_PLUS: "+"
+  BTN_HOME: home
+  BTN_SCREENSHOT: screenshot
   BTN_THUMBL: lstick
   BTN_THUMBR: rstick
-  BTN_MODE: heart
-  BTN_Z: lpaddle
-  BTN_C: rpaddle
 axes:
-  ABS_HAT0X:
-    binary:
-      left: [-1, -1]
-      right: [1, 1] 
-  ABS_HAT0Y:
-    binary:
-      up: [-1, -1]
-      down: [1, 1]
-  ABS_BRAKE:
-    #binary:
-    #  l2: [1, 255]
-    analog:
-      mapped_to: l2
-      min_value: 0
-      max_value: 255
-      default_value: 0
-  ABS_GAS:
-    #binary:
-    #  r2: [1, 255]
-    ptt: [1, 255]
-    analog:
-      mapped_to: r2
-      min_value: 0
-      max_value: 255
-      default_value: 0
   ABS_X:
     stick:
       lstick:

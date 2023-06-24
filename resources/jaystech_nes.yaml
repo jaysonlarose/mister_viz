@@ -1,0 +1,19 @@
+name: Jays' NES-to-USB
+vid: 0x1a61
+pid: 0x2049
+svg: nes.svg
+primary: true
+buttons:
+  JOYBUTTON_0: A
+  JOYBUTTON_1: B
+  JOYBUTTON_2: Select
+  JOYBUTTON_3: Start
+axes:
+  ABS_X:
+    binary:
+      Left: [-1, -1]
+      Right: [1, 1]
+  ABS_Y:
+    binary:
+      Up: [-1, -1]
+      Down: [1, 1]

@@ -1,55 +1,47 @@
 name: 8Bitdo Nes30 Pro 2
-vid: 0x2dc8
-pid: 0x2865
+vid: 0x1a61
+pid: 0x2049
 svg: nes30pro.svg
-primary: true
+primary: false
 ptt: BTN_TR2
 buttons:
-  BTN_A: a
-  BTN_B: b
-  BTN_X: x
-  BTN_Y: y
-  BTN_TL: l1
-  BTN_TR: r1
-  BTN_TL2: l2
-  BTN_TR2: r2
-  BTN_SELECT: select
-  BTN_START: start
-  BTN_THUMBL: lstick
-  BTN_THUMBR: rstick
+  JOYBUTTON_0: a
+  JOYBUTTON_1: b
+  JOYBUTTON_2: select
+  JOYBUTTON_3: start
 axes:
-  ABS_HAT0X:
+  ABS_X:
     binary:
       left: [-1, -1]
       right: [1, 1] 
-  ABS_HAT0Y:
+  ABS_Y:
     binary:
       up: [-1, -1]
       down: [1, 1]
-  ABS_X:
+  NA_0:
     stick:
-      lstick:
+      lstick idle:
         x:
           min_value: 0
           max_value: 255
           default_value: 127
-  ABS_Y:
+  NA_1:
     stick:
-      lstick:
+      lstick idle:
         y:
           min_value: 0
           max_value: 255
           default_value: 127
-  ABS_Z:
+  NA_2:
     stick:
-      rstick:
+      rstick idle:
         x:
           min_value: 0
           max_value: 255
           default_value: 127
-  ABS_RZ:
+  NA_3:
     stick:
-      rstick:
+      rstick idle:
         y:
           min_value: 0
           max_value: 255

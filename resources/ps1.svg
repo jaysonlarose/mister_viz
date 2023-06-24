@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!-- Created with Inkscape (http://www.inkscape.org/) -->
-
 <svg
    width="150.89619mm"
    height="133.78848mm"
@@ -9,6 +7,7 @@
    id="svg5"
    inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
    sodipodi:docname="ps1.svg"
+   data-name="Playstation Controller"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -32,12 +31,12 @@
      inkscape:snap-others="false"
      inkscape:snap-grids="false"
      inkscape:zoom="1.5411756"
-     inkscape:cx="260.19099"
-     inkscape:cy="65.534388"
+     inkscape:cx="195.95431"
+     inkscape:cy="65.209961"
      inkscape:window-width="3840"
-     inkscape:window-height="2134"
+     inkscape:window-height="2089"
      inkscape:window-x="0"
-     inkscape:window-y="0"
+     inkscape:window-y="34"
      inkscape:window-maximized="1"
      inkscape:current-layer="layer11"
      inkscape:snap-bbox="true"
@@ -114,7 +113,8 @@
      inkscape:label="l2"
      style="display:none"
      data-state="l2"
-     transform="translate(-1.7216479e-6,36.731934)">
+     transform="translate(-1.7216479e-6,36.731934)"
+     data-type="button">
     <rect
        style="fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.656;stroke-linecap:round;stroke-linejoin:round;stop-color:#000000"
        id="rect2133-3-6"
@@ -130,7 +130,8 @@
      inkscape:label="r2"
      data-state="r2"
      style="display:none"
-     transform="translate(-1.7216479e-6,36.731934)">
+     transform="translate(-1.7216479e-6,36.731934)"
+     data-type="button">
     <rect
        style="fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.656;stroke-linecap:round;stroke-linejoin:round;stop-color:#000000"
        id="rect2133-3-5-2"
@@ -164,7 +165,8 @@
      inkscape:label="l1"
      data-state="l1"
      transform="translate(-45.168901,-104.31703)"
-     style="display:none">
+     style="display:none"
+     data-type="button">
     <rect
        style="display:inline;fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.656;stroke-linecap:round;stroke-linejoin:round;stop-color:#000000"
        id="rect2133-35"
@@ -186,7 +188,8 @@
      inkscape:label="r1"
      data-state="r1"
      transform="translate(-45.168901,-104.31703)"
-     style="display:none">
+     style="display:none"
+     data-type="button">
     <rect
        style="fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.656;stroke-linecap:round;stroke-linejoin:round;stop-color:#000000"
        id="rect2133-7-9"
@@ -357,7 +360,8 @@
      inkscape:label="up"
      data-state="up"
      style="display:none"
-     transform="translate(-45.168901,-104.31703)">
+     transform="translate(-45.168901,-104.31703)"
+     data-type="button">
     <path
        id="path5101-8-7-9"
        style="font-variation-settings:normal;fill:#ff0000;fill-opacity:0.998382;stroke:#848484;stroke-width:0.656;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;stop-color:#000000"
@@ -370,7 +374,8 @@
      inkscape:label="down"
      data-state="down"
      style="display:none"
-     transform="translate(-45.168901,-104.31703)">
+     transform="translate(-45.168901,-104.31703)"
+     data-type="button">
     <path
        id="path5101-8-7-3-0-1"
        style="font-variation-settings:normal;fill:#ff0000;fill-opacity:1;stroke:#848484;stroke-width:0.656;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;stop-color:#000000"
@@ -383,7 +388,8 @@
      inkscape:label="left"
      data-state="left"
      style="display:none"
-     transform="translate(-45.168901,-104.31703)">
+     transform="translate(-45.168901,-104.31703)"
+     data-type="button">
     <path
        id="path5101-8-7-3-3"
        style="font-variation-settings:normal;fill:#ff0000;fill-opacity:1;stroke:#848484;stroke-width:0.656;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;stop-color:#000000"
@@ -396,7 +402,8 @@
      inkscape:label="right"
      data-state="right"
      style="display:none"
-     transform="translate(-45.168901,-104.31703)">
+     transform="translate(-45.168901,-104.31703)"
+     data-type="button">
     <path
        id="path5101-8-1"
        style="font-variation-settings:normal;fill:#ff0000;fill-opacity:1;stroke:#848484;stroke-width:0.656;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;stop-color:#000000"
@@ -409,7 +416,8 @@
      inkscape:label="triangle"
      data-state="triangle"
      style="display:none"
-     transform="translate(-45.168901,-104.31703)">
+     transform="translate(-45.168901,-104.31703)"
+     data-type="button">
     <circle
        style="font-variation-settings:normal;fill:#ff0000;fill-opacity:1;stroke:#848484;stroke-width:0.552744;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;stop-color:#000000"
        id="path13160-1"
@@ -423,7 +431,8 @@
      inkscape:label="cross"
      data-state="cross"
      style="display:none"
-     transform="translate(-45.168901,-104.31703)">
+     transform="translate(-45.168901,-104.31703)"
+     data-type="button">
     <circle
        style="font-variation-settings:normal;fill:#ff0000;fill-opacity:1;stroke:#848484;stroke-width:0.552744;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;stop-color:#000000"
        id="path13160-8-4-3"
@@ -437,7 +446,8 @@
      inkscape:label="square"
      data-state="square"
      style="display:none"
-     transform="translate(-45.168901,-104.31703)">
+     transform="translate(-45.168901,-104.31703)"
+     data-type="button">
     <circle
        style="font-variation-settings:normal;fill:#ff0000;fill-opacity:1;stroke:#848484;stroke-width:0.552744;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;stop-color:#000000"
        id="path13160-8-0"
@@ -451,7 +461,8 @@
      inkscape:label="circle"
      data-state="circle"
      style="display:none"
-     transform="translate(-45.168901,-104.31703)">
+     transform="translate(-45.168901,-104.31703)"
+     data-type="button">
     <circle
        style="font-variation-settings:normal;fill:#ff0000;fill-opacity:1;stroke:#848484;stroke-width:0.552744;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;stop-color:#000000"
        id="path13160-8-4-7-4"
@@ -465,7 +476,8 @@
      inkscape:label="select"
      data-state="select"
      style="display:none"
-     transform="translate(-45.168901,-104.31703)">
+     transform="translate(-45.168901,-104.31703)"
+     data-type="button">
     <rect
        style="font-variation-settings:normal;fill:#ff0000;fill-opacity:0.998382;stroke:#8a8a8a;stroke-width:0.656;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;stop-color:#000000"
        id="rect16108-0"
@@ -480,7 +492,8 @@
      inkscape:label="start"
      data-state="start"
      style="display:none"
-     transform="translate(-45.168901,-104.31703)">
+     transform="translate(-45.168901,-104.31703)"
+     data-type="button">
     <path
        id="path16176-3"
        style="fill:#ff0000;stroke:#8a8a8a;stroke-width:0.656;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
