@@ -3,6 +3,7 @@ vid: 0x054c
 pid: 0x0268
 svg: dualshock3.svg
 primary: true
+has_rumble: true
 buttons:
   BTN_DPAD_UP: up
   BTN_DPAD_DOWN: down

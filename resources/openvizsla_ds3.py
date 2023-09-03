@@ -1,4 +1,4 @@
-import mister_viz, mister_viz_openvizsla, jlib, binascii, time, random, math
+import mister_viz, mister_viz_openvizsla, jlib, binascii, time, random, math, collections
 import os, sys
 
 svg_filename = "dualshock3.svg"
@@ -7,9 +7,10 @@ class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
 	"""
 	Sony DualShock 3 controller.
 	"""
-	def __init__(self, resources):
+	def __init__(self, resources, **kwargs):
 		#print("Translator __init__()")
-		mister_viz_openvizsla.OpenVizslaTranslator.__init__(self, resources)
+		self.output_pressures = False
+		mister_viz_openvizsla.OpenVizslaTranslator.__init__(self, resources, **kwargs)
 		self.button_elements = dict([ [x.element, x] for x in self.res.buttons.values() ])
 		self.last_event = None
 		#self.ptt_state = ptt_state
@@ -60,6 +61,29 @@ class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
 			payload = event.payload
 
 			state = set()
+
+			
+			if self.output_pressures:
+				pressures = collections.OrderedDict()
+				for idx, key in [
+					[14, 'up'],
+					[15, 'right'],
+					[16, 'down'],
+					[17, 'left'],
+					[18, 'l2'],
+					[19, 'r2'],
+					[20, 'l1'],
+					[21, 'r1'],
+					[22, 'triangle'],
+					[23, 'circle'],
+					[24, 'cross/'],
+					[25, 'square'],
+				]:
+					pressures[key] = payload[idx]
+				output_frags = []
+				for k, v in pressures.items():
+					output_frags.append(f"{v}")
+				print(" ".join(output_frags), file=sys.stderr)
 
 			# payload[14] - up
 			# payload[15] - right

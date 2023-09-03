@@ -1,10 +1,47 @@
 #!/usr/bin/env python3
-import os, sys, hashlib, struct
+import os, sys, gi, mister_viz
 from mister_viz import *
+from gi.repository import GLib, GObject
 
-from fake_events import InputEvent as evdev_InputEvent
-from fake_events import categorize as evdev_categorize
-import fake_ecodes as ecodes
+progname = os.path.split(sys.argv[0])[1]
+featurename = os.path.splitext(progname)[0].split('_')[-1]
+modulename = f"mister_viz_{featurename}"
+
+import importlib
+module = importlib.import_module(modulename)
+
+
+class LogReader(GObject.GObject):
+	__gsignals__ = {
+		"line": (GObject.SignalFlags.RUN_FIRST, None, [GObject.TYPE_PYOBJECT]),
+		"finished": (GObject.SignalFlags.RUN_FIRST, None, []),
+	}
+	def __init__(self, fh):
+		super().__init__()
+		self.fh = fh
+		self.last_timestamp = None
+		self.first_timestamp = None
+	def startup(self):
+		GLib.io_add_watch(self.fh, GLib.IO_IN | GLib.IO_HUP, self.line_handler)
+
+	def line_handler(self, fh, flags):
+		if flags & GLib.IO_IN:
+			line = self.fh.readline()
+			if len(line) == 0:
+				self.emit("finished")
+				return False
+			line = line.strip()
+			ts_text, line = line.split(' ', 1)
+			self.last_timestamp = float(ts_text)
+			if self.first_timestamp is None:
+				self.first_timestamp = self.last_timestamp
+			#print(line, file=sys.stderr)
+			self.emit("line", line)
+			return True
+		if flags & GLib.IO_HUP:
+			self.fh.close()
+			return False
+
 
 # ./mister_viz_render.py ~/mister_viz__2022-11-29\ 21_25_56.log -v 2dc8 -p 2865 -r 60.1 | ffmpeg -f rawvideo -pix_fmt bgra -video_size 602x293 -framerate 60.1 -i - -c:v hevc_nvenc -f matroska ~/mister_viz.mkv
 # 1.86x
@@ -14,14 +51,13 @@ import fake_ecodes as ecodes
 # Git/mister_viz/mister_viz_render.py '/media/Recordings/games/raw/mister_viz__2023-01-09 06_19_03.log' -v 1a61 -p 2049 -y Git/mister_viz/resources/utility_jaystech_nes_to_nes30pro2.yaml -r 59.73 | ffmpeg -f rawvideo -pix_fmt bgra -video_size 602x293 -framerate 59.73 -i - -c:v png -f matroska 'mister_viz__2023-01-09 06_19_03.mkv'
 
 if __name__ == '__main__':
+	config_basedir = get_yaml_basedir()
 	import locale
 	locale.setlocale(locale.LC_ALL, "")
 	import argparse
 	parser = argparse.ArgumentParser()
 	parser.add_argument("log_file")
 	parser.add_argument("-w", "--width", dest="width", type=int, default=None, help="Specify scale width")
-	parser.add_argument("-v", "--vid", dest="vid", default=None, help="vendorID")
-	parser.add_argument("-p", "--pid", dest="pid", default=None, help="productID")
 	parser.add_argument("-r", "--framerate", dest="framerate", default=None, type=float, help="frame rate")
 	parser.add_argument("-y", "--yaml", dest="yaml_file", default=None, help="Explicitly force this YAML file to be used")
 	parser.add_argument("--get-dims", action="store_true", dest="get_dims", default=False, help="Run me to get final output dimensions")
@@ -39,47 +75,11 @@ if __name__ == '__main__':
 		timestamp_dims = [ int(x) for x in fw.get_dims(format_timestamp(now_tzaware(), omit_tz=True, precision=3)) ]
 		
 
-	vid = None
-	pid = None
 	res = None
+	res = SvgControllerResources(os.path.join(mister_viz.get_yaml_basedir(), module.SVG_FILENAME))
 
-	if args.vid is not None:
-		vid = int(args.vid, 16)
-	if args.pid is not None:
-		pid = int(args.pid, 16)
+	translator = module.Translator(res)
 
-	if args.yaml_file is not None:
-		res = MisterVizResourceMap(args.yaml_file)
-	else:
-		yaml_files = get_yaml_files(get_yaml_basedir())
-		resources = {}
-		res_lookup = {}
-		for yaml_file in yaml_files:
-			try:
-				resource = MisterVizResourceMap(yaml_file)
-				if not resource.config['primary']:
-					continue
-				if resource.config['name'] not in resources:
-					resources[resource.config['name']] = {}
-				print(f"Found resource \"{resource.config['name']}\"", file=sys.stderr)
-				resources[resource.config['name']] = resource
-			except Exception as e:
-				print(f"Error occurred trying to parse {yaml_file}:", file=sys.stderr)
-				for line in traceback.format_exc().splitlines():
-					print(f"  exception: {line}", file=sys.stderr)
-
-		res_lookup = {}
-		for rname in resources:
-			res = resources[rname]
-			config = res.config
-			if config['vid'] not in res_lookup:
-				res_lookup[config['vid']] = {}
-			if config['pid'] not in res_lookup[config['vid']]:
-				res_lookup[(config['vid'], config['pid'])] = res
-		
-		print(res_lookup.keys(), file=sys.stderr)
-		if vid is not None and pid is not None:
-			res = res_lookup[(vid, pid)]
 	if res is not None:
 		res.connected = True
 		renderer = MisterVizRenderer(res, width=args.width, bgcolor=None)
@@ -92,18 +92,7 @@ if __name__ == '__main__':
 				print(f"{renderer.width}x{renderer.height}")
 			sys.exit(0)
 		
-	log_fh = open(args.log_file, "rb")
-	sha1 = hashlib.sha1()
-	while True:
-		data = log_fh.read(65536)
-		if len(data) > 0:
-			sha1.update(data)
-		else:
-			break
-	seed = struct.unpack(">Q", sha1.digest()[:8])[0]
 	log_fh = open(args.log_file, "r")
-	if args.ffmpeg_args:
-		vidpid_qtys = {}
 	# ts_start gets set to the timestamp of the first event in the log
 	ts_start = None
 	# each mister_viz event log entry has two timestamps: wallclock time of the input event as determined by
@@ -114,109 +103,113 @@ if __name__ == '__main__':
 	# events.
 	tsdelta = None
 	current_frame = 0
-	# Framechanges is a dict.  It is keyed by video frame number, and contains a list of input events which occurred
-	# during that frame.
-	framechanges = {}
-	for line in log_fh:
-		log_event = parse_logline(line)
-		if isinstance(log_event, LogDisconnection) or isinstance(log_event, LogConnection):
-			if ts_start is None:
-				continue
-			connected_val = isinstance(log_event, LogConnection)
-			if tsdelta is not None:
-				compensated_timestamp = log_event.local_timestamp - tsdelta
-			else:
-				compensated_timestamp = log_event.local_timestamp
-			frameno = get_frameno(ts_start, args.framerate, compensated_timestamp)
-			if frameno not in framechanges:
-				framechanges[frameno] = [True, []]
-			else:
-				framechanges[frameno][0] = True
-			print(f"{frameno} connected: {connected_val}", file=sys.stderr)
-		else:
-			ts = log_event.get_timestamp()
-			tsdelta = log_event.local_timestamp - ts
-			if ts_start is None:
-				ts_start = ts
-			if vid is not None and log_event.vid != vid:
-				continue
-			if pid is not None and log_event.pid != pid:
-				continue
-			if args.ffmpeg_args:
-				key = (log_event.vid, log_event.pid)
-				if key not in vidpid_qtys:
-					vidpid_qtys[key] = 0
-				vidpid_qtys[key] += 1
-			frameno = get_frameno(ts_start, args.framerate, ts)
-			superevent = log_event.get_event()
-			if hasattr(superevent, 'event'):
-				event = superevent.event
-			else:
-				event = superevent
-			if args.parse_events:
-				ts_seconds = frameno // args.framerate
-				ts_frames  = int(frameno % args.framerate)
-				ts_minutes = int(ts_seconds // 60)
-				ts_seconds = int(ts_seconds % 60)
-				ts_hours   = int(ts_minutes // 60)
-				ts_minutes = int(ts_minutes % 60)
-				print(f"{ts_hours:02d}:{ts_minutes:02d}:{ts_seconds:02d}:{ts_frames:02d}: {superevent}")
-				#print(f"{ts} {frameno} {superevent}")
-		#	else:
-		#		print(f"{frameno} ({tsdelta}): {superevent}", file=sys.stderr)
-			if frameno not in framechanges:
-				framechanges[frameno] = [False, []]
-			framechanges[frameno][1].append(event)
+
+
 
 	if args.ffmpeg_args:
 		import shlex
-		vidpids_by_qty = [ x[0] for x in sorted([ x for x in vidpid_qtys.items() ], key=lambda x: x[1], reverse=True) ]
-		res = [ res_lookup[x] for x in vidpids_by_qty if x in res_lookup ][0]
-		renderer = MisterVizRenderer(res, width=args.width, bgcolor=None, seed=seed)
+		renderer = MisterVizRenderer(res, width=args.width, bgcolor=None)
 
 		procargs_lhs = []
 		procargs_lhs.append(sys.argv[0])
 		procargs_lhs.append(args.log_file)
-		procargs_lhs.append('-v')
-		procargs_lhs.append(f"{res.vid:04x}")
-		procargs_lhs.append('-p')
-		procargs_lhs.append(f"{res.pid:04x}")
 		procargs_lhs.extend(['-r', f"{args.framerate}"])
+		output_file = os.path.splitext(args.log_file)[0] + ".mkv"
 		if args.timestamps:
 			procargs_lhs.append("--timestamps")
 		if args.width:
 			procargs_lhs.extend([f"-w", f"{args.width}"])
 		procargs_rhs = []
-		procargs_rhs.extend(['ffmpeg', '-f', 'rawvideo', '-pix_fmt', 'bgra'])
+		procargs_rhs.extend(['ffmpeg', '-y', '-f', 'rawvideo', '-pix_fmt', 'bgra'])
 		if args.timestamps:
 			procargs_rhs.extend(['-video_size', f"{renderer.width}x{renderer.height + timestamp_dims[1] + 5}"])
 		else:
 			procargs_rhs.extend(['-video_size', f"{renderer.width}x{renderer.height}"])
 		procargs_rhs.extend(['-framerate', f"{args.framerate}"])
-		procargs_rhs.extend(['-i', '-', '-c:v', 'png', '-f', 'matroska', 'mister_viz.mkv'])
+		procargs_rhs.extend(['-i', '-', '-c:v', 'png', '-f', 'matroska', output_file])
 		print(f"{shlex.join(procargs_lhs)} | {shlex.join(procargs_rhs)}")
 		sys.exit(0)
-	if not args.pretend and not args.parse_events:
-		new_framechanges = {}
-		for frameno in sorted(framechanges)[:]:
-			do_reset, events = framechanges[frameno]
-			if do_reset:
-				renderer.reset()
-			for event in events:
-				renderer.push_event(event)
-			state = res.dump_state()
-			new_framechanges[frameno] = state
-			if res.has_rumble and res.rumbling:
-				if frameno + 1 not in framechanges:
-					res.rumbling = False
-					state = res.dump_state()
-					new_framechanges[frameno + 1] = state
-		del framechanges
-		framechanges = new_framechanges
-		framechange_qty = len(framechanges)
-		for i, frameno in enumerate(sorted(framechanges), 1):
+
+
+	loop = GLib.MainLoop()
+
+	reader = LogReader(log_fh)
+
+	parser = module.Parser()
+	translator = module.Translator(res)
+	reader.connect("line", parser.line_handler)
+
+	def reader_finished_handler(widget):
+		loop.quit()
+
+	reader.connect("finished", reader_finished_handler)
+
+	parser.connect("event", translator.event_handler)
+
+	# Framechanges is a dict.  It is keyed by video frame number, and contains a list of input events which occurred
+	# during that frame.
+	framechanges = {}
+	def dirty_handler(widget):
+		ts = reader.last_timestamp - reader.first_timestamp
+		frameno = get_frameno(0.0, args.framerate, ts)
+		if frameno not in framechanges:
+			framechanges[frameno] = []
+		framechanges[frameno].append(res.dump_state())
+		#print(widget.last_event.timestamp, file=sys.stderr)
+		#sys.stderr.write(f"{widget.last_event.timestamp}\r")
+		#sys.stderr.flush()
+		widget.reset_dirty()
+
+	translator.connect("dirty", dirty_handler)
+	reader.startup()
+	
+	loop.run()
+	sys.stderr.write("\n")
+	sys.stderr.flush()
+
+	
+	print(f"{len(framechanges)} frame changes", file=sys.stderr)
+
+	#for fc in sorted(framechanges):
+	#	if len(framechanges[fc]) > 1:
+	#		print(f"{fc} {len(framechanges[fc])}", file=sys.stderr)
+	#		for val in framechanges[fc]:
+	#			print(f"  {val}", file=sys.stderr)
+	
+
+	#for i, frameno in enumerate(sorted(framechanges), 1):
+	#	print(f"i {i} frameno {frameno}", file=sys.stderr)
+
+
+	surface_cache = {}
+	# Boil down frames that have multiple changes associated with them down to the most "interesting" version.
+	new_framechanges = {}
+	for frameno in sorted(framechanges)[:]:
+		states = framechanges[frameno]
+		most_interesting_state = sorted(states, key=lambda x: sum(x[0]), reverse=True)[0]
+		new_framechanges[frameno] = most_interesting_state
+		if most_interesting_state != states[-1]:
+			if frameno + 1 not in framechanges:
+				new_framechanges[frameno + 1] = states[-1]
+	del framechanges
+	framechanges = new_framechanges
+	framechange_qty = len(framechanges)
+
+	if args.parse_events:
+		for frameno in sorted(framechanges):
 			state = framechanges[frameno]
-			print(f"{frameno} {state}", file=sys.stderr)
+			res.load_state(state)
+			ts_seconds = frameno // args.framerate
+			ts_frames  = int(frameno % args.framerate)
+			ts_minutes = int(ts_seconds // 60)
+			ts_seconds = int(ts_seconds % 60)
+			ts_hours   = int(ts_minutes // 60)
+			ts_minutes = int(ts_minutes % 60)
+			#print(f"{ts_hours}:{ts_minutes}:{ts_seconds}:{ts_frames}: {res.format_state()}")
+
+			print(f"{ts_hours:02d}:{ts_minutes:02d}:{ts_seconds:02d}:{ts_frames:02d}: {res.format_state()}")
+
+	if not args.pretend and not args.parse_events:
 		for i, frameno in enumerate(sorted(framechanges), 1):
 			if args.timestamps:
 				#print("timestamps", file=sys.stderr)
@@ -234,7 +227,6 @@ if __name__ == '__main__':
 
 			state = framechanges[frameno]
 			#sys.stderr.write("\x1b[2K\x1b[1G")
-			res.load_state(state)
 			frame_gap = frameno - current_frame
 			if args.timestamps:
 				#print("compositing", file=sys.stderr)
@@ -247,11 +239,16 @@ if __name__ == '__main__':
 				surface_bytes = bytes(list(composite_surface.get_data()))
 			else:
 				surface_bytes = bytes(list(surface.get_data()))
-			for i in range(frame_gap):
-				#print(f"frame {frameno - (frame_gap - i)} frameno {frameno} gap {i}/{frame_gap}", file=sys.stderr)
+			for j in range(frame_gap):
+				#print(f"frame {frameno - (frame_gap - j)} frameno {frameno} gap {j}/{frame_gap}", file=sys.stderr)
 				sys.stdout.buffer.write(surface_bytes)
+			if state not in surface_cache:
+				res.load_state(state)
+				#print("render", file=sys.stderr)
+				surface = renderer.render()
+				surface_cache[state] = surface
+			else:
+				surface = surface_cache[state]
 			current_frame = frameno
-			#print("render", file=sys.stderr)
-			surface = renderer.render()
 
 

@@ -18,11 +18,19 @@ buttons:
   BTN_TR2: r
   BTN_C: heart
 axes:
-  ABS_X:
+  #ABS_X:
+  #  binary:
+  #    left: [0, 0]
+  #    right: [255, 255] 
+  #ABS_Y:
+  #  binary:
+  #    up: [0, 0]
+  #    down: [255, 255]
+  ABS_HAT0X:
     binary:
-      left: [0, 0]
-      right: [255, 255] 
-  ABS_Y:
+      left: [-1, -1]
+      right: [1, 1]
+  ABS_HAT0Y:
     binary:
-      up: [0, 0]
-      down: [255, 255]
+      up: [-1, -1]
+      down: [1, 1]

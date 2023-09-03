@@ -6,7 +6,7 @@ import gi
 import random
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib, Gdk, GdkPixbuf, GObject
-import cairosvg, cairo, io, PIL.Image, struct, yaml, lxml.etree, copy, math, socket, subprocess, atexit, multiprocessing, queue, time, traceback, psutil, datetime, random, base64, math
+import cairosvg, cairo, io, PIL.Image, struct, yaml, lxml.etree, copy, math, socket, subprocess, atexit, multiprocessing, queue, time, traceback, psutil, datetime, random, base64, math, numpy
 
 gi.require_version("PangoCairo", "1.0")
 from gi.repository import PangoCairo, Pango
@@ -487,8 +487,9 @@ MISTER_STRUCT = "<BBHHHHiII"
 MISTER_STRUCT_SIZE = struct.calcsize(MISTER_STRUCT)
 SVG_PREFIX = '{http://www.w3.org/2000/svg}'
 DUMP_RENDERS = False
-SOCKET_KEEPALIVE_INTERVAL = 5000
-SOCKET_KEEPALIVE_TIMEOUT  = 5000
+SOCKET_KEEPALIVE_INTERVAL = 2000
+SOCKET_KEEPALIVE_TIMEOUT  = 2000
+SOCKET_CONNECT_TIMEOUT    = 2000
 OP_INPUT = 0
 OP_PING  = 1
 OP_PONG  = 2
@@ -512,17 +513,18 @@ def translate_constrainedint(sensor_val, in_from, in_to, out_from, out_to):# {{{
 	return out_val
 # }}}
 
-class Control(GObject.GObject):
+class Control(GObject.GObject):# {{{
 	__gsignals__ = {
 		"value-changed": (GObject.SignalFlags.RUN_FIRST, None, []),
 		"reset":         (GObject.SignalFlags.RUN_FIRST, None, []),
 	}
-	def __init__(self, reset=True, parent_control=None):
+	def __init__(self, reset=True, parent_control=None):# {{{
 		super().__init__()
 		self.parent_control = parent_control
 		if reset:
 			self.reset()
-	def set_value(self, value, emit=True):
+	# }}}
+	def set_value(self, value, emit=True):# {{{
 		if hasattr(self, "value"):
 			orig_value = self.value
 		else:
@@ -532,13 +534,18 @@ class Control(GObject.GObject):
 			self.parent_control.set_value(value, emit=emit)
 		if orig_value != self.value and emit:
 			self.emit("value-changed")
-	def reset(self):
+	# }}}
+	def reset(self):# {{{
 		self.set_value(None, emit=False)
 		self.emit("reset")
-	def get_state(self):
+	# }}}
+	def get_state(self):# {{{
 		return set()
-	def all_states(self):
+	# }}}
+	def all_states(self):# {{{
 		return set()
+	# }}}
+# }}}
 class Stick(Control):# {{{
 	"""
 	This class represents a typical gamepad
@@ -723,7 +730,7 @@ def svg_to_pixbuf(svg_bytes, scale_factor):# {{{
 	return pixbuf
 # }}}
 
-def modify_gradient(tree, axis_name, fract):
+def modify_gradient(tree, axis_name, fract):# {{{
 	axis_groups = [ x for x in xmlwalk(tree) if 'data-type' in x.attrib and 'data-state' in x.attrib and x.attrib['data-type'] == 'axis' and x.attrib['data-state'] == axis_name ]
 	axis_group = axis_groups[0]
 	gradient_axis_elems = [ [x[0], x[1]['fill']] for x in [ [x, xmlattrib_to_dict(x.attrib['style'])] for x in xmlwalk(axis_group) if 'style' in x.attrib ] if 'fill' in x[1] and x[1]['fill'].startswith("url(#linearGradient") ]
@@ -739,6 +746,7 @@ def modify_gradient(tree, axis_name, fract):
 	gradientdef = [ x for x in xmlwalk(tree) if 'id' in x.attrib and x.attrib['id'] == gradientdef_href ][0]
 	for stop_elem in gradientdef[1:3]:
 		stop_elem.attrib['offset'] = f"{fract}"
+# }}}
 def svg_state_split(svg_bytes, debug=False):# {{{
 	ret = {}
 	tree = lxml.etree.fromstring(svg_bytes)
@@ -780,8 +788,8 @@ def svg_state_split(svg_bytes, debug=False):# {{{
 # }}}
 
 
-class SvgControllerResources:
-	def __init__(self, svg_filename):
+class SvgControllerResources:# {{{
+	def __init__(self, svg_filename):# {{{
 		self.base_dir = os.path.dirname(svg_filename)
 		base = os.path.splitext(os.path.basename(svg_filename))[0]
 		self.base_name = os.path.splitext(base)[0]
@@ -793,6 +801,7 @@ class SvgControllerResources:
 		self.vid = 0xffff
 		self.pid = 0xffff
 		self.has_rumble = False
+		self.rumbling = False
 		self.last_rumble = None
 
 		if 'data-name' in self.tree.attrib:
@@ -856,11 +865,13 @@ class SvgControllerResources:
 				self.buttons[k].stick = v
 		# Process svg file
 		self.svgs = svg_state_split(self.base_svg)
-	def dump_svgs(self):		
+	# }}}
+	def dump_svgs(self):# {{{
 		for k in self.svgs:
 			outfile = f"{k.replace(':', '_')}.svg"
 			open(outfile, "wb").write(self.svgs[k])
-	def dump_state(self):
+	# }}}
+	def dump_state(self):# {{{
 		ret = []
 		sub = []
 		for k in sorted(self.buttons.keys()):
@@ -870,13 +881,19 @@ class SvgControllerResources:
 		for k in sorted(self.axes.keys()):
 			sub.append(self.axes[k].value)
 		ret.append(tuple(sub))
+		if self.has_rumble:
+			ret.append(self.rumbling)
 		return tuple(ret)
-	def load_state(self, dump):
+	# }}}
+	def load_state(self, dump):# {{{
 		for i, k in enumerate(sorted(self.buttons.keys())):
 			self.buttons[k].set_value(dump[0][i])
 		for i, k in enumerate(sorted(self.axes.keys())):
 			self.axes[k].set_value(dump[1][i])
-	def format_state(self):
+		if self.has_rumble:
+			self.rumbling = dump[2]
+	# }}}
+	def format_state(self):# {{{
 		frags = []
 		orphan_axes = dict(self.axes.items())
 		for k in sorted(self.sticks):
@@ -895,14 +912,14 @@ class SvgControllerResources:
 			if button.value > 0:
 				frags.append(f"{k}")
 		return " ".join(frags)
-
-
-class MisterVizResourceMap:
+	# }}}
+# }}}
+class MisterVizResourceMap:# {{{
 	"""
 	This reads in a YAML file and uses it to Linux input subsystem events
 	onto SvgControllerResources.
 	"""
-	def __init__(self, yaml_filename):
+	def __init__(self, yaml_filename):# {{{
 		self.base_dir = os.path.dirname(yaml_filename)
 		base = os.path.splitext(os.path.basename(yaml_filename))[0]
 		self.base_name = os.path.splitext(base)[0]
@@ -946,29 +963,82 @@ class MisterVizResourceMap:
 		# Process svg file
 		#self.svgs = svg_state_split(self.base_svg)
 		self.svgs = self.svg_res.svgs
-	@property
+	# }}}
+	@property # name{{{
 	def name(self):
 		if 'name' in self.config:
 			return self.config['name']
 		if hasattr(self, 'name'):
 			return self.name
 		return None
-
-	@property
+	# }}}
+	@property # has_rumble{{{
 	def has_rumble(self):
+		if 'has_rumble' in self.config:
+			return self.config['has_rumble']
 		return self.svg_res.has_rumble
-	@property
+	# }}}
+	@property # rumbling{{{
+	def rumbling(self):
+		return self.svg_res.rumbling
+	@rumbling.setter
+	def rumbling(self, val):
+		self.svg_res.rumbling = val
+	# }}}
+	@property # last_rumble{{{
 	def last_rumble(self):
 		return self.svg_res.last_rumble
 	@last_rumble.setter
 	def last_rumble(self, val):
 		self.svg_res.last_rumble = val
-
-	def dump_svgs(self):		
+	# }}}
+	def dump_svgs(self):# {{{
 		for k in self.svgs:
 			outfile = f"{k}.svg"
 			open(outfile, "wb").write(self.svgs[k])
-# }}}
+	# }}}
+	def dump_state(self):# {{{
+		ret = []
+		sub = []
+		for k in sorted(self.buttons.keys()):
+			sub.append(self.buttons[k].value)
+		ret.append(tuple(sub))
+		sub = []
+		for k in sorted(self.axes.keys()):
+			sub.append(self.axes[k].value)
+		ret.append(tuple(sub))
+		if self.has_rumble:
+			ret.append(self.rumbling)
+		return tuple(ret)
+	# }}}
+	def load_state(self, dump):# {{{
+		for i, k in enumerate(sorted(self.buttons.keys())):
+			self.buttons[k].set_value(dump[0][i])
+		for i, k in enumerate(sorted(self.axes.keys())):
+			self.axes[k].set_value(dump[1][i])
+		if self.has_rumble:
+			self.rumbling = dump[2]
+	# }}}
+	def format_state(self):# {{{
+		frags = []
+		orphan_axes = dict(self.axes.items())
+		for k in sorted(self.sticks):
+			stick = self.sticks[k]
+			frags.append(f"{k}: {stick.x_axis.value},{stick.y_axis.value}")
+			for ak in list(orphan_axes.keys()):
+				for ax in [stick.x_axis, stick.y_axis]:
+					if orphan_axes[ak] == ax:
+						del orphan_axes[ak]
+						break
+		for k in sorted(orphan_axes):
+			axis = orphan_axes[k]
+			frags.append(f"{k}: {axis.value}")
+		for k in sorted(self.buttons):
+			button = self.buttons[k]
+			if button.value > 0:
+				frags.append(f"{k}")
+		return " ".join(frags)
+	# }}}
 # }}}
 class proppadict(dict):# {{{
 	def __getattr__(self, attr):
@@ -1188,8 +1258,8 @@ def scaler_process_func(inq, outq, pipe=None):# {{{
 			break
 # }}}
 
-class MisterVizStub:
-	def __init__(self, debug=False):
+class MisterVizStub:# {{{
+	def __init__(self, debug=False):# {{{
 		self.res_lookup = {}
 		self.procs = []
 		self.windows = {}
@@ -1232,6 +1302,7 @@ class MisterVizStub:
 				self.res_lookup[config['vid']] = {}
 			if config['pid'] not in self.res_lookup[config['vid']]:
 				self.res_lookup[config['vid']][config['pid']] = res
+# }}}
 	def scaler_handler(self, scaler, payload):# {{{
 		#print("scaler_handler()")
 		key, pixbuf, x_offset, y_offset, factor = payload
@@ -1265,9 +1336,10 @@ class MisterVizStub:
 			else:
 				Gtk.main_quit()
 	# }}}
-	def sigint_handler(self, sig, frame):
+	def sigint_handler(self, sig, frame):# {{{
 		print(f"Signal {sig} caught!", file=sys.stderr)
 		self.shutdown()
+# }}}
 	def murder_handler(self):# {{{
 		for proc in self.procs:
 			if isinstance(proc, subprocess.Popen):
@@ -1277,13 +1349,13 @@ class MisterVizStub:
 		Gtk.main_quit()
 		return False
 	# }}}
-
+# }}}
 
 class MisterViz:# {{{
 	"""
 	This is the primary piece of code for mister_viz.
 	"""
-	def __init__(self, hostname, do_window=True, do_viz=True, debug=False, log_file=None, ptt_state=None):# {{{
+	def __init__(self, hostname, do_window=True, do_viz=True, debug=False, log_file=None, ptt_states=[], width=None):# {{{
 		self.hostname = hostname
 		self.do_window = do_window
 		self.do_viz = do_viz
@@ -1291,6 +1363,7 @@ class MisterViz:# {{{
 		self.debug = debug
 		self.log_file = log_file
 		self.log_fh = None
+		self.width = width
 		self.connection_status = "disconnected"
 		self.connect_handle = None
 		self.socket_handle = None
@@ -1308,7 +1381,7 @@ class MisterViz:# {{{
 		# * "wait" - waiting for pong (keepalive handle is for timer to detect timeout)
 		self.keepalive_state = None
 		self.keepalive_handle = None
-		self.ptt_state = ptt_state
+		self.ptt_states = ptt_states
 
 
 		if sys.platform == "win32":
@@ -1469,14 +1542,14 @@ class MisterViz:# {{{
 					self.res_lookup[config['vid']] = {}
 				if config['pid'] not in self.res_lookup[config['vid']]:
 					self.res_lookup[config['vid']][config['pid']] = res
-# }}}
+	# }}}
 	def scaler_handler(self, scaler, payload):# {{{
 		key, pixbuf, x_offset, y_offset, factor = payload
 		window_id, state = key
 		print(f"scaler handler handling {window_id}:{state}")
 		if window_id in self.windows:
 			self.windows[window_id].pixbuf_receive_handler(state, pixbuf, x_offset, y_offset, factor)
-# }}}
+	# }}}
 	def window_print(self, *values, sep=' ', end='', file=None, **kwargs):# {{{
 		msg = sep.join([ str(x) for x in values ])
 		if file is not None and file is not sys.stdout and file is not sys.stderr:
@@ -1488,19 +1561,20 @@ class MisterViz:# {{{
 		if line_count > self.textbuf_max_lines:
 			self.textbuf.delete(self.textbuf.get_start_iter(), self.textbuf.get_iter_at_line(line_count - self.textbuf_max_lines))
 		GLib.idle_add(self.scroll_handler)
-# }}}
+	# }}}
 	def scroll_handler(self):# {{{
 		vadj = self.scroll.get_vadjustment()
 		vadj.set_value(vadj.get_upper())
-# }}}
-	def logfile_entry_activate_handler(self, widget):
+	# }}}
+	def logfile_entry_activate_handler(self, widget):# {{{
 		pass
-	def logfile_switch_handler(self, widget, event):
+	# }}}
+	def logfile_switch_handler(self, widget, event):# {{{
 		pass
-
+	# }}}
 	def clear_button_handler(self, widget):# {{{
 		self.textbuf.delete(self.textbuf.get_start_iter(), self.textbuf.get_end_iter())
-# }}}
+	# }}}
 	def copy_button_handler(self, widget):# {{{
 		text = self.textbuf.get_text(self.textbuf.get_start_iter(), self.textbuf.get_end_iter(), True)
 		clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
@@ -1528,7 +1602,7 @@ class MisterViz:# {{{
 			if self.window is not None:
 				for key in list(self.windows):
 					self.windows[key].destroy()
-# }}}
+	# }}}
 	def disconnect(self, reconnect=False):# {{{
 		local_timestamp = time.time()
 		# Tear down the socket
@@ -1542,6 +1616,7 @@ class MisterViz:# {{{
 		# Reset button state on any open viz windows
 		for handler in self.event_handlers.values():
 			handler.reset()
+			handler.set_dirty()
 		#for win in self.windows.values():
 		#	win.reset()
 		# Indicate in the logfile that a reset occurred.
@@ -1583,39 +1658,71 @@ class MisterViz:# {{{
 			GLib.source_remove(self.connect_handle)
 			self.connect_handle = None
 		if self.socket_handle is not None:
+			# socket_handle holds our IO_OUT watch while we're connecting,
+			# holds our IO_IN watch after we're connected.
 			GLib.source_remove(self.socket_handle)
 			self.socket_handle = None
+		if self.keepalive_handle is not None:
+			# keepalive_handle holds our connection timeout source when we're connecting
+			# holds our keepalive timeout source when we're connected.
+			GLib.source_remove(self.keepalive_handle)
+			self.keepalive_handle = None
+		if self.sock is not None:
+			self.sock.close()
+			self.sock = None
 		if self.window is not None:
 			self.connect_button.set_label("Cancel")
 			self.hostname_entry.set_text(self.hostname)
 			self.hostname_entry.set_sensitive(False)
 		self.connection_status = "connecting"
 		try:
-			sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+			self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+			self.sock.setblocking(False)
 			print("Connecting...")
-			sock.connect((self.hostname, 22101))
-			local_timestamp = time.time()
-			print("Connected!")
-			if self.log_file is not None:
-				if self.log_fh is None:
-					self.log_fh = open(self.log_file, "a")
-				print(f"connected {local_timestamp}", file=self.log_fh)
-			if self.window is not None:
-				self.connect_button.set_label("Disconnect")
-			self.connection_status = "connected"
-			self.sock = sock
-			self.socket_handle = GLib.io_add_watch(self.sock, GLib.IO_IN | GLib.IO_HUP, self.socket_handler)
-			if self.keepalive_handle is not None:
-				GLib.source_remove(self.keepalive_handle)
-				self.keepalive_handle = None
-			self.keepalive_handle = GLib.timeout_add(10000, self.keepalive_handler)
-			return False
+			try:
+				self.sock.connect((self.hostname, 22101))
+			except BlockingIOError:
+				self.socket_handle = GLib.io_add_watch(self.sock, GLib.IO_OUT, self.connect_finish_handler)
+				self.keepalive_handle = GLib.timeout_add(SOCKET_CONNECT_TIMEOUT, self.connect_timeout_handler)
 		except OSError:
 			print("Connection failed!")
 			if self.connection_status == "connecting":
 				self.connect_handle = GLib.timeout_add(100, self.connect_handler)
 			return False
 	# }}}
+
+	def connect_finish_handler(self, fh, flags):# {{{
+		self.socket_handle = None
+		if self.keepalive_handle is not None:
+			# keepalive_handle holds our connection timeout source when we're connecting
+			# holds our keepalive timeout source when we're connected.
+			GLib.source_remove(self.keepalive_handle)
+			self.keepalive_handle = None
+
+		local_timestamp = time.time()
+		print("Connected!")
+		if self.log_file is not None:
+			if self.log_fh is None:
+				self.log_fh = open(self.log_file, "a")
+			print(f"connected {local_timestamp}", file=self.log_fh)
+		if self.window is not None:
+			self.connect_button.set_label("Disconnect")
+		self.connection_status = "connected"
+		self.socket_handle = GLib.io_add_watch(self.sock, GLib.IO_IN | GLib.IO_HUP, self.socket_handler)
+		if self.keepalive_handle is not None:
+			GLib.source_remove(self.keepalive_handle)
+			self.keepalive_handle = None
+		self.keepalive_handle = GLib.timeout_add(SOCKET_KEEPALIVE_INTERVAL, self.keepalive_handler)
+		return False
+	# }}}
+	def connect_timeout_handler(self):
+		self.keepalive_handle = None
+		if self.sock is not None:
+			self.sock.close()
+			self.sock = None
+		print("Connection timeout!")
+		self.connect_handle = GLib.timeout_add(100, self.connect_handler)
+		return False
 	def keepalive_handler(self):# {{{
 		if not self.sock._closed:
 			self.sock.send(bytes([OP_PING]))
@@ -1658,12 +1765,12 @@ class MisterViz:# {{{
 					else:
 						print(f"Unknown opcode {opcode}")
 						data = b''
-				except ConnectionResetError:
+				except (ConnectionResetError, OSError):
 					data = b''
 				#print(f"got {len(data)} bytes")
 				if len(data) == 0:
 					self.disconnect()
-					print("Disconnected!")
+					print("Socket handler senses disconnection!")
 					self.connection_status = "connecting"
 					if self.window is not None:
 						self.connect_button.set_label("Cancel")
@@ -1722,50 +1829,61 @@ class MisterViz:# {{{
 				else:
 					if vid in self.res_lookup:
 						if pid in self.res_lookup[vid]:
+							"""
+							We've found a vid/pid match in our resource lookups, initialize
+							"""
 							print(f"Found resource for vid/pid {vid:04x}:{pid:04x}, instantiating window")
 							res = self.res_lookup[vid][pid]
 							win = MisterVizWindow(parent=self, controller_resource=res, window_id=key)
 							self.windows[key] = win
 							win.connect("destroy", self.window_destroy_handler)
+							if self.width is not None:
+								def resize_handler():
+									self.windows[key].resize(self.width, self.width)
+								GLib.timeout_add(500, resize_handler)
 							handler = MisterVizEventHandler(controller_resource=res)
 							self.event_handlers[key] = handler
-							if self.ptt_state is not None:
-								ptt_widget = None
-								frags = self.ptt_state.split(":")
-								if len(frags) == 5:
-									if res.name is not None and frags[0].lower() == res.name.lower():
-										ptt_widget = JackPushToTalk()
-										ptt_args = frags[1:]
-								elif len(frags) == 6:
-									if frags[0] == f"{vid:04x}" and frags[1] == f"{pid:04x}":
-										ptt_widget = JackPushToTalk()
-										ptt_args = frags[2:]
-								else:
-									raise RuntimeError("Incorrect number of frags for ptt_state!")
+							"""
+							Check to see if there are push to talk state(s) defined for this device.
+							"""
+							if self.ptt is not None and len(self.ptt_states) > 0:
+								for ptt_state in self.ptt_states:
+									ptt_args = None
+									frags = ptt_state.split(":")
+									if len(frags) == 5:
+										# This state is defined by controller name
+										if res.name is not None and frags[0].lower() == res.name.lower():
+											ptt_args = frags[1:]
+									elif len(frags) == 6:
+										# This state is defined by vid+pid
+										if frags[0] == f"{vid:04x}" and frags[1] == f"{pid:04x}":
+											ptt_args = frags[2:]
+									else:
+										raise RuntimeError("Incorrect number of frags for ptt_state!")
 
-								if ptt_widget is not None:
-									print(f"Using this resource as a push-to-talk widget.")
-									ptt_swtype = ptt_args[0]
-									ptt_swname = ptt_args[1]
-									ptt_minval = int(ptt_args[2])
-									ptt_maxval = int(ptt_args[3])
-									print(f"ptt_swtype: {ptt_swtype}")
-									print(f"ptt_swname: {ptt_swname}")
-									print(f"ptt_minval: {ptt_minval}")
-									print(f"ptt_maxval: {ptt_maxval}")
-									if ptt_swtype == 'axis':
-										control = handler.res.svg_res.axes[ptt_swname]
-									elif ptt_swtype == 'button':
-										control = handler.res.svg_res.buttons[ptt_swname]
+									if ptt_args is not None:
+										print(f"Using this resource as a push-to-talk widget.")
+										ptt_swtype = ptt_args[0]
+										ptt_swname = ptt_args[1]
+										ptt_minval = int(ptt_args[2])
+										ptt_maxval = int(ptt_args[3])
+										print(f"ptt_swtype: {ptt_swtype}")
+										print(f"ptt_swname: {ptt_swname}")
+										print(f"ptt_minval: {ptt_minval}")
+										print(f"ptt_maxval: {ptt_maxval}")
+										if ptt_swtype == 'axis':
+											control = handler.res.svg_res.axes[ptt_swname]
+										elif ptt_swtype == 'button':
+											control = handler.res.svg_res.buttons[ptt_swname]
 
-									def ptt_handler(widget):
-										print(f"ptt_handler ({control.value})")
-										if control.value >= ptt_minval and control.value <= ptt_maxval:
-											ptt_widget.set_value(True)
-										else:
-											ptt_widget.set_value(False)
+										def ptt_handler(widget):
+											print(f"ptt_handler ({control.value})")
+											if control.value >= ptt_minval and control.value <= ptt_maxval:
+												self.ptt.set_value(True)
+											else:
+												self.ptt.set_value(False)
 
-									handler.connect("dirty", ptt_handler)
+										handler.connect("dirty", ptt_handler)
 
 							def dirty_handler(widget):
 								win.trigger_draw()
@@ -1823,7 +1941,7 @@ class MisterViz:# {{{
 			
 		if len(self.windows) == 0:
 			self.shutdown()
-# }}}
+	# }}}
 	def window_destroy_handler(self, window):# {{{
 		if isinstance(window, MisterVizWindow):
 			key = f"{window.res.config['vid']:04x}:{window.res.config['pid']:04x}"
@@ -1835,7 +1953,7 @@ class MisterViz:# {{{
 				self.seen_window = None
 		if self.window == None and self.seen_window is None and len(self.windows) == 0:
 			self.shutdown()
-# }}}
+	# }}}
 	def shutdown(self, *args):# {{{
 		if not self.in_shutdown:
 			self.in_shutdown = True
@@ -1859,9 +1977,10 @@ class MisterViz:# {{{
 			else:
 				Gtk.main_quit()
 	# }}}
-	def sigint_handler(self, sig, frame):
+	def sigint_handler(self, sig, frame):# {{{
 		print(f"Signal {sig} caught!", file=sys.stderr)
 		self.shutdown()
+	# }}}
 	def murder_handler(self):# {{{
 		for proc in self.procs:
 			if isinstance(proc, subprocess.Popen):
@@ -1893,10 +2012,16 @@ def svg_scale_to_pixbuf(svg, factor, crop=True):# {{{
 	return ret
 # }}}
 class MisterVizRenderer:# {{{
-	def __init__(self, controller_resource, width=None, bgcolor=(1, 0, 1, 1)):# {{{
+	def __init__(self, controller_resource, width=None, bgcolor=(1, 0, 1, 1), seed=None):# {{{
 		self.res = controller_resource
 		self.pixbufs = {}
 		self.event_queue = []
+		self.global_x_offset = 0
+		self.global_y_offset = 0
+		if seed is not None:
+			self.rng = numpy.random.default_rng(numpy.random.PCG64(seed))
+		else:
+			self.rng = numpy.random.default_rng()
 		if width is None:
 			self.scalefactor = 1.0
 		else:
@@ -1914,9 +2039,14 @@ class MisterVizRenderer:# {{{
 			pixbuf = svg_scale_to_pixbuf(self.res.svgs[key], self.scalefactor, key is not None)
 			self.pixbufs[key] = [pixbuf.pixbuf, pixbuf.x_offset, pixbuf.y_offset]
 	# }}}
+	def rumble_handler(self, event):
+		print(f"rumble handler {event}", file=sys.stderr)
+		#self.global_x_offset, self.global_y_offset = plot_course((0, 0), self.rng.random() * (math.pi * 2), 30)
 	def apply_event_queue(self):# {{{
 		if not self.res.connected:
 			self.res.connected = True
+		if self.res.has_rumble:
+			self.res.rumbling = False
 		for event in self.event_queue:
 			ev_type = ecodes.EV[event.type]
 			if ev_type == 'EV_KEY':
@@ -1935,6 +2065,10 @@ class MisterVizRenderer:# {{{
 				ev_code = ecodes.ABS[event.code]
 				if ev_code in self.res.axes:
 					self.res.axes[ev_code].set_value(event.value)
+			elif ev_type == 'EV_FF':
+				self.res.rumbling = True
+				if hasattr(self.res, "rumble_handler"):
+					self.res.rumble_handler(event)
 		self.event_queue = []
 	# }}}
 	def reset(self):# {{{
@@ -1942,6 +2076,8 @@ class MisterVizRenderer:# {{{
 			self.res.connected = False
 			for widget in list(self.res.buttons.values()) + list(self.res.axes.values()) + list(self.res.sticks.values()):
 				widget.reset()
+			if self.res.has_rumble:
+				self.res.rumbling = False
 		except Exception as e:
 			for line in traceback.format_exc().splitlines():
 				print(f"exception: {line}")
@@ -1962,12 +2098,17 @@ class MisterVizRenderer:# {{{
 			self.event_queue.append(event)
 	# }}}
 	def render(self):# {{{
+		if self.res.rumbling:
+			self.global_x_offset, self.global_y_offset = plot_course((0, 0), self.rng.random() * (math.pi * 2), 30)
+		else:
+			self.global_x_offset = 0
+			self.global_y_offset = 0
 		surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.pixbufs[None][0].get_width(), self.pixbufs[None][0].get_height())
 		cr = cairo.Context(surface)
 		if self.bgcolor is not None:
 			cr.set_source_rgba(*self.bgcolor)
 			cr.paint()
-		Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[None][0], self.pixbufs[None][1], self.pixbufs[None][2])
+		Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[None][0], self.pixbufs[None][1] + self.global_x_offset, self.pixbufs[None][2] + self.global_y_offset)
 		cr.paint()
 		allstate = set()
 		for x in self.res.buttons.values():
@@ -1981,7 +2122,7 @@ class MisterVizRenderer:# {{{
 			if state in self.res.sticks:
 				continue
 			if state in self.pixbufs:
-				Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[state][0], self.pixbufs[state][1], self.pixbufs[state][2])
+				Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[state][0], self.pixbufs[state][1] + self.global_x_offset, self.pixbufs[state][2] + self.global_y_offset)
 				cr.paint()
 
 		for k, stick in self.res.sticks.items():
@@ -2016,28 +2157,31 @@ class MisterVizRenderer:# {{{
 						offsets['x'] = magnitude * math.cos(angle)
 						offsets['y'] = magnitude * math.sin(angle)
 
-				Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[pixkey][0], (offsets['x'] * self.scalefactor) + self.pixbufs[pixkey][1], (offsets['y'] * self.scalefactor) + self.pixbufs[pixkey][2])
+				Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[pixkey][0], (offsets['x'] * self.scalefactor) + self.pixbufs[pixkey][1] + self.global_x_offset, (offsets['y'] * self.scalefactor) + self.pixbufs[pixkey][2] + self.global_y_offset)
 				cr.paint()
 		return surface
 		# }}}
 # }}}
 
 
-class MisterVizEventHandler(GObject.GObject):
+class MisterVizEventHandler(GObject.GObject):# {{{
 	__gsignals__ = {
 		"dirty": (GObject.SignalFlags.RUN_FIRST, None, []),
 	}
-	def __init__(self, controller_resource=None):
+	def __init__(self, controller_resource=None):# {{{
 		super().__init__()
 		self.res = controller_resource
 		self.event_queue = []
 		self.dirty_flag = False
-	def reset_dirty(self):
+	# }}}
+	def reset_dirty(self):# {{{
 		self.dirty_flag = False
-	def set_dirty(self):
+	# }}}
+	def set_dirty(self):# {{{
 		if not self.dirty_flag:
 			self.dirty_flag = True
 			self.emit("dirty")
+	# }}}
 	def apply_event_queue(self):# {{{
 		print(f"apply_event_queue ({len(self.event_queue)})")
 		for event in self.event_queue:
@@ -2068,9 +2212,10 @@ class MisterVizEventHandler(GObject.GObject):
 				#self.res.last_rumble = event.timestamp()
 		self.event_queue = []
 	# }}}
-	def append(self, event):
+	def append(self, event):# {{{
 		self.event_queue.append(event)
-	def reset(self, event=None):
+	# }}}
+	def reset(self, event=None):# {{{
 		self.res.connected = False
 		try:
 			for widget in list(self.res.buttons.values()) + list(self.res.axes.values()) + list(self.res.sticks.values()):
@@ -2078,8 +2223,8 @@ class MisterVizEventHandler(GObject.GObject):
 		except Exception as e:
 			for line in traceback.format_exc().splitlines():
 				print(f"exception: {line}")
-
-
+	# }}}
+# }}}
 
 
 class MisterVizWindow(Gtk.Window):# {{{
@@ -2219,7 +2364,7 @@ class MisterVizWindow(Gtk.Window):# {{{
 
 		if next_pixbuf_key is not None:
 			self.parent.scaler.scale_svg([self.window_id, next_pixbuf_key], self.res.svgs[next_pixbuf_key], self.scalefactor)
-# }}}
+	# }}}
 	def reset(self):# {{{
 		self.res.connected = False
 		try:
@@ -2233,14 +2378,15 @@ class MisterVizWindow(Gtk.Window):# {{{
 	def darea_realize_handler(self, widget):# {{{
 		#print("darea_realize_handler")
 		self.connect("size-allocate", self.resize_handler)
-# }}}
+	# }}}
 	def resize_handler(self, widget, other):# {{{
 		if self.resize_timer_id is not None:
 			GLib.source_remove(self.resize_timer_id)
 			self.resize_timer_id = None
 		self.resize_timer_id = GLib.timeout_add(1000, self.resize_finisher)
 	
-	def resize_finisher(self):
+	# }}}
+	def resize_finisher(self):# {{{
 		self.resize_timer_id = None
 		curr_dims = (self.get_allocated_width(), self.get_allocated_height())
 		if curr_dims != self.win_dims:
@@ -2248,7 +2394,7 @@ class MisterVizWindow(Gtk.Window):# {{{
 			new_dims = resize_aspect(self.viz_width, self.viz_height, width=curr_dims[0])
 			self.scalefactor = new_dims[2]
 			self.parent.scaler.scale_svg([self.window_id, None], self.res.svgs[None], self.scalefactor)
-# }}}
+	# }}}
 	def update_buttonstate(self, new_state):# {{{
 		self.buttonstate = set()
 		for k, v in self.res.buttonmap.items():
@@ -2259,7 +2405,7 @@ class MisterVizWindow(Gtk.Window):# {{{
 	def trigger_draw(self, *args):# {{{
 		self.darea.queue_draw()
 	# }}}
-	def rumble_handler(self, event):
+	def rumble_handler(self, event):# {{{
 		print("rumble handler", file=sys.stderr)
 		if self.res.last_rumble is not None:
 			print(event.timestamp() - self.res.last_rumble, file=sys.stderr)
@@ -2274,14 +2420,15 @@ class MisterVizWindow(Gtk.Window):# {{{
 			GLib.source_remove(self.rumble_handler_source)
 			self.rumble_handler_source = None
 		GLib.timeout_add(int(1000 / 10), self.rumble_finished_handler)
-	def rumble_finished_handler(self):
+	# }}}
+	def rumble_finished_handler(self):# {{{
 		if self.rumble_handler_source is not None:
 			GLib.source_remove(self.rumble_handler_source)
 			self.rumble_handler_source = None
 		self.global_x_offset = 0
 		self.global_y_offset = 0
 		self.darea.queue_draw()
-
+	# }}}
 	def draw_handler(self, widget, cr):# {{{
 		if self.parent.debug:
 			print(f"{time.time()} draw_handler begin", file=sys.stderr)
@@ -2295,11 +2442,12 @@ class MisterVizWindow(Gtk.Window):# {{{
 			cr.set_operator(cairo.OPERATOR_OVER)
 			if None not in self.pixbufs:
 				return
-			if self.res.has_rumble:
-				if self.res.rumbling:
-					print("RUMBLING!", file=sys.stderr)
-					self.res.rumbling = False
-					self.rumble_handler()
+			# TODO: was this good good?
+			#if self.res.has_rumble:
+			#	if self.res.rumbling:
+			#		print("RUMBLING!", file=sys.stderr)
+			#		self.res.rumbling = False
+			#		self.rumble_handler()
 
 			Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[None][0], self.pixbufs[None][1] + self.global_x_offset, self.pixbufs[None][2] + self.global_y_offset)
 			cr.paint()
@@ -2362,7 +2510,6 @@ class MisterVizWindow(Gtk.Window):# {{{
 				print(f"exception: {line}", file=sys.stderr)
 		if self.parent.debug:
 			print(f"{time.time()} draw_handler finish", file=sys.stderr)
-
 	# }}}
 # }}}
 
@@ -2478,7 +2625,7 @@ class MisterSeenEventsWindow(Gtk.Window):# {{{
 				print(f"exception: {line}")
 
 		return False
-# }}}
+	# }}}
 	def prev_button_handler(self, widget):# {{{
 		try:
 			seen_keys = sorted(self.parent.seen_events)
@@ -2489,7 +2636,7 @@ class MisterSeenEventsWindow(Gtk.Window):# {{{
 		except Exception as e:
 			for line in traceback.format_exc().splitlines():
 				print(f"exception: {line}")
-# }}}
+	# }}}
 	def next_button_handler(self, widget):# {{{
 		try:
 			seen_keys = sorted(self.parent.seen_events)
@@ -2500,7 +2647,7 @@ class MisterSeenEventsWindow(Gtk.Window):# {{{
 		except Exception as e:
 			for line in traceback.format_exc().splitlines():
 				print(f"exception: {line}")
-# }}}
+	# }}}
 	def copy_button_handler(self, widget):# {{{
 		try:
 			text = self.textbuf.get_text(self.textbuf.get_start_iter(), self.textbuf.get_end_iter(), True)
@@ -2528,7 +2675,8 @@ if __name__ == '__main__':
 		parser.add_argument("-N", "--no-viz", action="store_false", dest="do_viz", default=True, help="Don't spawn visualization windows")
 		parser.add_argument("-c", "--console", action="store_true", dest="do_console", default=False, help="Spawn REPL on stdin/stdout")
 		parser.add_argument("-l", "--log-file", action="store", dest="log_file", default=None, help="Write events to log file LOG_FILE. Use magic name \":auto:\" to auto-create based on time and date.")
-		parser.add_argument("-p", "--ptt", action="store", dest="ptt_state", default=None, help="Use this state as the push-to-talk buttons Format: vid:pid:type:name:minval:maxval or controllername:type:name:minval:maxval")
+		parser.add_argument("-p", "--ptt", action="append", dest="ptt_states", default=[], help="Add this state to the list of push-to-talk buttons. Can be specified multiple times Format: vid:pid:type:name:minval:maxval or controllername:type:name:minval:maxval")
+		parser.add_argument("-w", "--width", action="store", dest="width", default=None, type=int)
 		args = parser.parse_args()
 		if args.log_file == ':auto:':
 			nao = datetime.datetime.now()
@@ -2536,7 +2684,7 @@ if __name__ == '__main__':
 			log_file = f"mister_viz__{naostr}.log"
 		else:
 			log_file = args.log_file
-		app = MisterViz(args.hostname, debug=args.debug, do_window=args.do_window, do_viz=args.do_viz, log_file=log_file, ptt_state=args.ptt_state)
+		app = MisterViz(args.hostname, debug=args.debug, do_window=args.do_window, do_viz=args.do_viz, log_file=log_file, ptt_states=args.ptt_states, width=args.width)
 	else:
 		app = MisterViz(None)
 

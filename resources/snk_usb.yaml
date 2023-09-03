@@ -1,0 +1,31 @@
+name: 8Bitdo Neo Geo USB
+vid: 0x2dc8
+pid: 0x3106
+svg: snk.svg
+primary: true
+scale: 1.0
+buttons:
+  BTN_A: a
+  BTN_B: b
+  BTN_X: c
+  BTN_Y: d
+  BTN_TL: l
+  BTN_TR: r
+  BTN_START: start
+  BTN_SELECT: select
+  BTN_MODE: heart
+axes:
+  ABS_HAT0X:
+    stick:
+      d-stick:
+        x:
+          min_value: -1
+          max_value: 1
+          default_value: 0
+  ABS_HAT0Y:
+    stick:
+      d-stick:
+        y:
+          min_value: -1
+          max_value: 1
+          default_value: 0
