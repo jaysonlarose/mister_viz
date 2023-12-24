@@ -12,7 +12,7 @@ import fake_ecodes as ecodes
 
 class LogReader(GObject.GObject):
 	__gsignals__ = {
-		"line": (GObject.SignalFlags.RUN_FIRST, None, [GObject.TYPE_PYOBJECT]),
+		"line": (GObject.SignalFlags.RUN_FIRST, None, [float, str]),
 		"finished": (GObject.SignalFlags.RUN_FIRST, None, []),
 	}
 	def __init__(self, fh):
@@ -34,8 +34,8 @@ class LogReader(GObject.GObject):
 			self.last_timestamp = float(ts_text)
 			if self.first_timestamp is None:
 				self.first_timestamp = self.last_timestamp
-			#print(line, file=sys.stderr)
-			self.emit("line", line)
+			#print(f"LogReader line: {line}", file=sys.stderr)
+			self.emit("line", self.last_timestamp, line)
 			return True
 		if flags & GLib.IO_HUP:
 			self.fh.close()
@@ -45,7 +45,7 @@ class LogReader(GObject.GObject):
 # ./mister_viz_render.py ~/mister_viz__2022-11-29\ 21_25_56.log -v 2dc8 -p 2865 -r 60.1 | ffmpeg -f rawvideo -pix_fmt bgra -video_size 602x293 -framerate 60.1 -i - -c:v hevc_nvenc -f matroska ~/mister_viz.mkv
 # 1.86x
 # ./mister_viz_render.py ~/mister_viz__2022-11-29\ 21_25_56.log -v 2dc8 -p 2865 -r 60.1 | ffmpeg -f rawvideo -pix_fmt bgra -video_size 602x293 -framerate 60.1 -i - -c:v libvpx-vp9 -row-mt 1 -threads 8 -speed 4 -f matroska ~/mister_viz.mkv
-# 1.23x
+# 1.23x#
 # ./mister_viz_render.py ~/mister_viz__2022-11-29\ 21_25_56.log -v 2dc8 -p 2865 -r 60.1 | ffmpeg -f rawvideo -pix_fmt bgra -video_size 602x293 -framerate 60.1 -i - -c:v libvpx-vp9 -row-mt 1 -f matroska ~/mister_viz.mkv
 # Git/mister_viz/mister_viz_render.py '/media/Recordings/games/raw/mister_viz__2023-01-09 06_19_03.log' -v 1a61 -p 2049 -y Git/mister_viz/resources/utility_jaystech_nes_to_nes30pro2.yaml -r 59.73 | ffmpeg -f rawvideo -pix_fmt bgra -video_size 602x293 -framerate 59.73 -i - -c:v png -f matroska 'mister_viz__2023-01-09 06_19_03.mkv'
 

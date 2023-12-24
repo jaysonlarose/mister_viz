@@ -368,6 +368,7 @@ if __name__ == '__main__':
 	parser.add_argument("-c", "--console", action="store_true", dest="do_console", default=False, help="Spawn REPL on stdin/stdout")
 	parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)
 	parser.add_argument("--linedump", action="store_true", dest="line_dump", default=False, help="Write usb dump to stdout.")
+	parser.add_argument("--no-clutter", action="store_false", dest="use_clutter", default=True, help="Use cairo instead of clutter")
 	args = parser.parse_args()
 
 	module_path = os.path.join(config_basedir, f"openvizsla_{args.module_name}.py")
@@ -392,13 +393,17 @@ if __name__ == '__main__':
 	stub = mister_viz.MisterVizStub()
 	stub.debug = args.debug
 	res = mister_viz.SvgControllerResources(os.path.join(mister_viz.get_yaml_basedir(), module.svg_filename))
-	window = mister_viz.MisterVizWindow(stub, controller_resource=res)
+	if args.use_clutter:
+		import mister_viz_clutter
+		window = mister_viz_clutter.MisterVizClutterWindow(stub, controller_resource=res)
+	else:
+		window = mister_viz.MisterVizWindow(stub, controller_resource=res)
 	stub.windows[window.window_id] = window
 	translator = module.Translator(res)
 
 	def translator_dirty_handler(widget):
 		#print(f"{time.time()} translator_dirty_handler()", file=sys.stderr)
-		window.darea.queue_draw()
+		window.trigger_draw()
 		widget.reset_dirty()
 
 	translator.connect("dirty", translator_dirty_handler)
@@ -417,14 +422,18 @@ if __name__ == '__main__':
 		#print(newpoint)
 		res.sticks['lstick'].x_axis.set_value(newpoint[0])
 		res.sticks['lstick'].y_axis.set_value(newpoint[1])
-		window.darea.queue_draw()
+		window.trigger_draw()
 		return True
 	
 	#GLib.timeout_add(int(1000 / 60), periodic_handler)
 
 	if args.ptt_state is not None:
+		import dbus
+		import dbus, dbus.mainloop.glib
+		dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+		bus = dbus.SessionBus()
 		print(f"Setting up push-to-talk on {args.ptt_state}", file=sys.stderr)
-		ptt_widget = mister_viz.JackPushToTalk()
+		ptt_widget = mister_viz.JackPushToTalk(bus)
 		frags = args.ptt_state.split(":")
 		ptt_swtype = frags[0]
 		ptt_swname = frags[1]

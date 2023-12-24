@@ -30,15 +30,15 @@
      fit-margin-left="5"
      fit-margin-right="5"
      fit-margin-bottom="5"
-     inkscape:zoom="14.481547"
-     inkscape:cx="88.768141"
-     inkscape:cy="201.60139"
+     inkscape:zoom="28.963094"
+     inkscape:cx="216.18892"
+     inkscape:cy="241.53152"
      inkscape:window-width="3840"
      inkscape:window-height="2089"
      inkscape:window-x="0"
      inkscape:window-y="34"
      inkscape:window-maximized="1"
-     inkscape:current-layer="layer11"
+     inkscape:current-layer="layer27"
      inkscape:object-paths="true"
      inkscape:snap-intersection-paths="true"
      inkscape:snap-smooth-nodes="true"
@@ -1111,7 +1111,7 @@
      id="layer1"
      inkscape:label="sticks"
      transform="translate(1.3229167,36.316879)"
-     style="display:none">
+     style="display:inline">
     <g
        inkscape:groupmode="layer"
        id="layer29"

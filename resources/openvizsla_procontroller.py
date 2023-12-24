@@ -135,7 +135,7 @@ class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
 					if axis == 'y':
 						pos *= -1
 					pos += 127
-					print(f"{stick} {axis} {lim[0]}, {lim[1]}, {axrange} {pos} {lim[2]}")
+					#print(f"{stick} {axis} {lim[0]}, {lim[1]}, {axrange} {pos} {lim[2]}")
 					if axis == 'x':
 						if self.res.sticks[stick].x_axis.value != pos:
 							self.res.sticks[stick].x_axis.set_value(pos)

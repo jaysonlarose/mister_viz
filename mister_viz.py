@@ -680,6 +680,17 @@ class Axis(Control):# {{{
 	#		else:
 	#			self.ptt.set_value(0)
 	#	self.value = value
+	def set_value(self, value, emit=True):
+		super().set_value(value, emit=emit)
+		if self.is_binary:
+			for fromval, toval, elem in self.rangemap:
+				elem_type, elem_name = elem.split(":", 1)
+				if elem_type == "button":
+					if self.value >= fromval and self.value <= toval:
+						self.svg_res.buttons[elem_name].set_value(1)
+					else:
+						self.svg_res.buttons[elem_name].set_value(0)
+
 	def get_state(self):
 		ret = set()
 		if self.value is None:
@@ -707,10 +718,8 @@ class Axis(Control):# {{{
 # }}}
 
 class JackPushToTalk:# {{{
-	def __init__(self):
-		import dbus, dbus.mainloop.glib
-		dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
-		self.dbus = dbus.SessionBus()
+	def __init__(self, bus):
+		self.dbus = bus
 		self.lastval = False
 
 	def set_value(self, value):
@@ -723,6 +732,28 @@ class JackPushToTalk:# {{{
 			call_dbus_method(self.dbus, "org.interlaced.jack_ptt", "/org/interlaced/jack_ptt", "org.freedesktop.DBus.Properties", "Set", "org.interlaced.jack_ptt", "attach", setval)
 			self.lastval = setval
 # }}}
+
+class CounterInterface:
+	def __init__(self, bus, path):
+		self.dbus = bus
+		self.path = path
+	def increment(self):
+		rawval = call_dbus_method(self.dbus, "org.interlaced.obs_dbus", self.path, "org.freedesktop.DBus.Properties", "Get", "org.interlaced.obs_dbus.text", "text")
+		try:
+			val = int(rawval)
+			val += 1
+			call_dbus_method(self.dbus, "org.interlaced.obs_dbus", self.path, "org.freedesktop.DBus.Properties", "Set", "org.interlaced.obs_dbus.text", "text", f"{val}")
+		except ValueError:
+			pass
+	def decrement(self):
+		rawval = call_dbus_method(self.dbus, "org.interlaced.obs_dbus", self.path, "org.freedesktop.DBus.Properties", "Get", "org.interlaced.obs_dbus.text", "text")
+		try:
+			val = int(rawval)
+			val -= 1
+			call_dbus_method(self.dbus, "org.interlaced.obs_dbus", self.path, "org.freedesktop.DBus.Properties", "Set", "org.interlaced.obs_dbus.text", "text", f"{val}")
+		except ValueError:
+			pass
+
 def svg_to_pixbuf(svg_bytes, scale_factor):# {{{
 	fobj = io.BytesIO(cairosvg.svg2png(svg_bytes, scale=scale_factor))
 	pil_img = PIL.Image.open(fobj)
@@ -1355,7 +1386,7 @@ class MisterViz:# {{{
 	"""
 	This is the primary piece of code for mister_viz.
 	"""
-	def __init__(self, hostname, do_window=True, do_viz=True, debug=False, log_file=None, ptt_states=[], width=None):# {{{
+	def __init__(self, hostname, do_window=True, do_viz=True, debug=False, log_file=None, ptt_states=[], width=None, use_clutter=True):# {{{
 		self.hostname = hostname
 		self.do_window = do_window
 		self.do_viz = do_viz
@@ -1368,6 +1399,7 @@ class MisterViz:# {{{
 		self.connect_handle = None
 		self.socket_handle = None
 		self.in_shutdown = False
+		self.use_clutter = use_clutter
 		if self.hostname is not None:
 			self.connect_handle = GLib.idle_add(self.connect_handler)
 		self.window = None
@@ -1467,13 +1499,14 @@ class MisterViz:# {{{
 			hbox.pack_start(but, True, True, 0)
 			vbox.pack_start(hbox, False, False, 0)
 
-			self.window.add(vbox)
-			self.window.resize(640, 480)
-			self.window.show_all()
 			global print
 			global orig_print
 			orig_print = print
 			print = self.window_print
+			self.window.add(vbox)
+			print(f"DOING INITIAL RESIZE TO 640, 480")
+			self.window.resize(640, 480)
+			self.window.show_all()
 
 			def handle_exception(exc_type, exc_value, exc_traceback):
 				if isinstance(exc_type, KeyboardInterrupt):
@@ -1484,8 +1517,12 @@ class MisterViz:# {{{
 			sys.excepthook = handle_exception
 		atexit.register(self.shutdown)
 
+		import dbus, dbus.mainloop.glib
+		dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+		self.dbus = dbus.SessionBus()
+
 		if not jack_disabled:
-			self.setup_joystick_ptt()
+			self.setup_joystick_ptt(bus=self.dbus)
 		else:
 			self.ptt = None
 
@@ -1650,8 +1687,8 @@ class MisterViz:# {{{
 			
 		print("Disconnected!")
 	# }}}
-	def setup_joystick_ptt(self):# {{{
-		self.ptt = JackPushToTalk()
+	def setup_joystick_ptt(self, bus):# {{{
+		self.ptt = JackPushToTalk(bus)
 	# }}}
 	def connect_handler(self):# {{{
 		if self.connect_handle is not None:
@@ -1795,7 +1832,8 @@ class MisterViz:# {{{
 				superevent = event
 				if hasattr(event, 'event'):
 					event = event.event
-				print_event = True
+				# TODO Change this back to true
+				print_event = False
 				if ecodes.EV[event.type] == 'EV_SYN':
 					print_event = False
 				elif ecodes.EV[event.type] == 'EV_MSC':
@@ -1834,7 +1872,11 @@ class MisterViz:# {{{
 							"""
 							print(f"Found resource for vid/pid {vid:04x}:{pid:04x}, instantiating window")
 							res = self.res_lookup[vid][pid]
-							win = MisterVizWindow(parent=self, controller_resource=res, window_id=key)
+							if self.use_clutter:
+								import mister_viz_clutter
+								win = mister_viz_clutter.MisterVizClutterWindow(parent=self, controller_resource=res, window_id=key)
+							else:	
+								win = MisterVizWindow(parent=self, controller_resource=res, window_id=key)
 							self.windows[key] = win
 							win.connect("destroy", self.window_destroy_handler)
 							if self.width is not None:
@@ -1877,7 +1919,7 @@ class MisterViz:# {{{
 											control = handler.res.svg_res.buttons[ptt_swname]
 
 										def ptt_handler(widget):
-											print(f"ptt_handler ({control.value})")
+											#print(f"ptt_handler ({control.value})")
 											if control.value >= ptt_minval and control.value <= ptt_maxval:
 												self.ptt.set_value(True)
 											else:
@@ -1888,8 +1930,33 @@ class MisterViz:# {{{
 							def dirty_handler(widget):
 								win.trigger_draw()
 								widget.reset_dirty()
-
 							handler.connect("dirty", dirty_handler)
+
+							if res.name == '8Bitdo Pro 2':
+								import jlib, functools
+								incdec_state = jlib.proppadict()
+								incdec_state.lastval = ''
+								enable_controls = [handler.res.svg_res.buttons['lpaddle'], handler.res.svg_res.buttons['l']]
+								inc_control    = handler.res.svg_res.buttons['up']
+								dec_control    = handler.res.svg_res.buttons['down']
+								counter = CounterInterface(self.dbus, '/death_count')
+								def incdec_handler(widget):
+
+									if functools.reduce(lambda x, y: x.value & y.value, enable_controls) == 1:
+										print(f"enabled {inc_control.value} {dec_control.value}")
+										if inc_control.value == 1 and incdec_state.lastval != '+':
+											print("increment")
+											incdec_state.lastval = '+'
+											counter.increment()
+										elif dec_control.value == 1 and incdec_state.lastval != '-':
+											print("decrement")
+											incdec_state.lastval = '-'
+											counter.decrement()
+										else:
+											incdec_state.lastval = ''
+								handler.connect("dirty", incdec_handler)
+									
+
 
 				if self.window:
 					update_seen_window = False
@@ -1943,7 +2010,10 @@ class MisterViz:# {{{
 			self.shutdown()
 	# }}}
 	def window_destroy_handler(self, window):# {{{
-		if isinstance(window, MisterVizWindow):
+		print("DESTROY")
+		import mister_viz
+		if isinstance(window, mister_viz.MisterVizWindowStub) or isinstance(window, MisterVizWindowStub):
+			print("IT'S STUBBY")
 			key = f"{window.res.config['vid']:04x}:{window.res.config['pid']:04x}"
 			if key in self.windows:
 				del self.windows[key]
@@ -2183,7 +2253,7 @@ class MisterVizEventHandler(GObject.GObject):# {{{
 			self.emit("dirty")
 	# }}}
 	def apply_event_queue(self):# {{{
-		print(f"apply_event_queue ({len(self.event_queue)})")
+		#print(f"apply_event_queue ({len(self.event_queue)})")
 		for event in self.event_queue:
 			ev_type = ecodes.EV[event.type]
 			if ev_type == 'EV_KEY':
@@ -2227,7 +2297,7 @@ class MisterVizEventHandler(GObject.GObject):# {{{
 # }}}
 
 
-class MisterVizWindow(Gtk.Window):# {{{
+class MisterVizWindowStub(Gtk.Window):# {{{
 	def __init__(self, parent, window_id=None, controller_resource=None, permit_alpha=True):# {{{
 		super().__init__()
 		self.res = controller_resource
@@ -2275,14 +2345,43 @@ class MisterVizWindow(Gtk.Window):# {{{
 		# win_dims stores the last known dimensions for the actual window, so we can
 		# determine if pixbuf resizing needs to happen.
 		self.win_dims = None
-		self.darea = Gtk.DrawingArea()
-		self.darea.connect("draw", self.draw_handler)
-		self.add(self.darea)
 		#self.resize(int(self.viz_width * scalefactor), int(self.viz_height * scalefactor))
 		#self.darea.connect("realize", self.darea_realize_handler)
-		self.show_all()
 		if DUMP_RENDERS:
 			self.res.dump_svgs()
+	# }}}
+	def darea_click_handler(self, widget, event):# {{{
+		if event.type != getattr(Gdk.EventType, "BUTTON_PRESS"):
+			return False
+		print(f"darea_click_handler() {event.type}")
+		print(event.button)
+
+		print(f"resize_handler() called!")
+		if self.resize_timer_id is not None:
+			GLib.source_remove(self.resize_timer_id)
+			self.resize_timer_id = None
+
+		curr_window_dims = (self.get_allocated_width(), self.get_allocated_height())
+		print(f"curr_window_dims: {curr_window_dims}")
+		geom = self.get_window().get_geometry()
+		curr_window_geom = (geom.width, geom.height)
+		print(f"curr_window_goem: {curr_window_geom}")
+		curr_darea_dims  = (self.main_widget.get_allocated_width(), self.main_widget.get_allocated_height())
+		print(f"curr_darea_dims: {curr_darea_dims}")
+		dim_discrepancy = [ x[0] - x[1] for x in zip(curr_window_dims, curr_darea_dims) ]
+		print(f"dim_discrepancy: {dim_discrepancy}")
+		#self.resize_timer_id = GLib.timeout_add(1000, self.resize_finisher)
+		desired_dims = (int(self.viz_width * self.scalefactor), int(self.viz_height * self.scalefactor))
+
+		new_dims = resize_aspect(self.viz_width, self.viz_height, width=curr_darea_dims[0])
+		scalefactor = new_dims[2]
+		if event.button == Gdk.BUTTON_PRIMARY:
+			self.resize(*desired_dims)
+		elif event.button == Gdk.BUTTON_SECONDARY:
+			self.scalefactor = scalefactor
+			self.parent.scaler.scale_svg([self.window_id, None], self.res.svgs[None], self.scalefactor)
+		
+		return False
 	# }}}
 	def screen_changed_handler(self, widget, old_screen):# {{{
 		screen = widget.get_screen()
@@ -2295,115 +2394,81 @@ class MisterVizWindow(Gtk.Window):# {{{
 			self.has_alpha = True
 		widget.set_visual(visual)
 	# }}}
-	def pixbuf_receive_handler(self, key, pixbuf, x_offset, y_offset, scalefactor):# {{{
-		print(f"Receiving pixbuf for state: {key} (scale factor {scalefactor})")
-		if key is None:
-			# A key of None means we're receiving a base pixbuf
-			if self.viz_width is None and self.viz_height is None:
-				# If our viz_width and viz_height values are None, we're receiving our first pixbuf,
-				# which is of scalefactor 1.0. We use this pixbuf's dimensions to set viz_width and viz_height.
-				self.viz_width = pixbuf.get_width()
-				self.viz_height = pixbuf.get_height()
-				#print(f"Setting viz dimensions to {self.viz_width}x{self.viz_height}")
-				if self.scalefactor != 1.0:
-					# If our actual desired scalefactor isn't 1.0, resubmit a scale request for the proper
-					# desired scalefactor.
-					#print(f"Resubmitting SVG for scalefactor {self.scalefactor}")
-					self.parent.scaler.scale_svg([self.window_id, None], self.res.svgs[None], self.scalefactor)
-					return
-			self.pixbufs = {}
-			self.pixbufs[key] = [pixbuf, x_offset, y_offset]
-			self.darea.queue_draw()
-			self.inflight = False
-			self.scalefactor = scalefactor
-			#self.resize_handler_id = self.connect("size-allocate", self.resize_handler)
-			if self.resize_handler_id is not None:
-				self.disconnect(self.resize_handler_id)
-				self.resize_handler_id = None
-			self.resize(int(self.viz_width * self.scalefactor), int(self.viz_height * self.scalefactor))
-			self.resize_handler_id = self.connect("size-allocate", self.resize_handler)
-		else:
-			if scalefactor != self.scalefactor:
-				return
-			#print(f"Adding pixbuf for state {key}")
-			self.pixbufs[key] = [pixbuf, x_offset, y_offset]
-
-		next_pixbuf_key = None
-		allstate = set()
-		for x in self.res.buttons.values():
-			if x.on_stick:
-				continue
-			allstate |= x.get_state()
-		for x in self.res.axes.values():
-			allstate |= x.get_state()
-		if key in allstate:
-			self.darea.queue_draw()
-		# Populate sticks first
-		for k, stick in self.res.sticks.items():
-			if stick.has_button:
-				if stick.button.value:
-					pixkey = f"button:{k}"
-				else:
-					pixkey = f"stick:{k}"
-			else:
-				pixkey = f"stick:{k}"
-			if pixkey not in self.pixbufs:
-				next_pixbuf_key = pixkey
-		# Done with sticks? See if there's anything currently being pressed we need to populate.
-		if next_pixbuf_key is None:
-			for key in allstate:
-				if key in self.res.svgs and key not in self.pixbufs:
-					next_pixbuf_key = key
-					break
-		# Done with stuff in state? Cache up anything else.
-		if next_pixbuf_key is None:
-			for k in self.res.svgs:
-				if k not in self.pixbufs:
-					next_pixbuf_key = k
-					break
-
-		if next_pixbuf_key is not None:
-			self.parent.scaler.scale_svg([self.window_id, next_pixbuf_key], self.res.svgs[next_pixbuf_key], self.scalefactor)
-	# }}}
 	def reset(self):# {{{
 		self.res.connected = False
 		try:
 			for widget in list(self.res.buttons.values()) + list(self.res.axes.values()) + list(self.res.sticks.values()):
 				widget.reset()
-			self.darea.queue_draw()
+			self.trigger_draw()
 		except Exception as e:
 			for line in traceback.format_exc().splitlines():
 				print(f"exception: {line}")
 	# }}}
 	def darea_realize_handler(self, widget):# {{{
-		#print("darea_realize_handler")
+		print("darea_realize_handler")
 		self.connect("size-allocate", self.resize_handler)
 	# }}}
 	def resize_handler(self, widget, other):# {{{
+		print(f"resize_handler() called!")
 		if self.resize_timer_id is not None:
 			GLib.source_remove(self.resize_timer_id)
 			self.resize_timer_id = None
-		self.resize_timer_id = GLib.timeout_add(1000, self.resize_finisher)
+
+		curr_window_dims = (self.get_allocated_width(), self.get_allocated_height())
+		print(f"curr_window_dims: {curr_window_dims}")
+		geom = self.get_window().get_geometry()
+		curr_window_geom = (geom.width, geom.height)
+		print(f"curr_window_goem: {curr_window_geom}")
+		curr_darea_dims  = (self.main_widget.get_allocated_width(), self.main_widget.get_allocated_height())
+		print(f"curr_darea_dims: {curr_darea_dims}")
+		dim_discrepancy = [ x[0] - x[1] for x in zip(curr_window_dims, curr_darea_dims) ]
+		print(f"dim_discrepancy: {dim_discrepancy}")
+		#self.resize_timer_id = GLib.timeout_add(1000, self.resize_finisher)
 	
 	# }}}
+	def resize_handler_reinstate(self):# {{{
+		print("Reinstating resize handler")
+		if self.resize_handler_id is not None:
+			self.disconnect(self.resize_handler_id)
+			self.resize_handler_id = None
+		self.resize_handler_id = self.connect("size-allocate", self.resize_handler)
+		return False
+	# }}}
 	def resize_finisher(self):# {{{
+		print(f"resize_finisher() called!")
 		self.resize_timer_id = None
 		curr_dims = (self.get_allocated_width(), self.get_allocated_height())
 		if curr_dims != self.win_dims:
+			print(f"curr_dims {curr_dims} differ from self.win_dims {self.win_dims}")
 			self.win_dims = curr_dims
 			new_dims = resize_aspect(self.viz_width, self.viz_height, width=curr_dims[0])
 			self.scalefactor = new_dims[2]
 			self.parent.scaler.scale_svg([self.window_id, None], self.res.svgs[None], self.scalefactor)
+	# }}}
+	def resize_to(self, width, height):# {{{
+		if self.resize_handler_id is not None:
+			self.disconnect(self.resize_handler_id)
+			self.resize_handler_id = None
+		print(f"RESIZE TO {width}, {height}")
+		curr_window_dims = (self.get_allocated_width(), self.get_allocated_height())
+		print(f"curr_window_dims: {curr_window_dims}")
+		geom = self.get_window().get_geometry()
+		curr_window_geom = (geom.width, geom.height)
+		print(f"curr_window_goem: {curr_window_geom}")
+		curr_darea_dims  = (self.main_widget.get_allocated_width(), self.main_widget.get_allocated_height())
+		print(f"curr_darea_dims: {curr_darea_dims}")
+		dim_discrepancy = [ x[0] - x[1] for x in zip(curr_window_dims, curr_darea_dims) ]
+		print(f"dim_discrepancy: {dim_discrepancy}")
+		desired_dims = (int(self.viz_width * self.scalefactor), int(self.viz_height * self.scalefactor))
+		self.resize(*desired_dims)
+		return False
 	# }}}
 	def update_buttonstate(self, new_state):# {{{
 		self.buttonstate = set()
 		for k, v in self.res.buttonmap.items():
 			if new_state & k:
 				self.buttonstate.add(v)
-		self.darea.queue_draw()
-	# }}}
-	def trigger_draw(self, *args):# {{{
-		self.darea.queue_draw()
+		self.trigger_draw()
 	# }}}
 	def rumble_handler(self, event):# {{{
 		print("rumble handler", file=sys.stderr)
@@ -2414,12 +2479,10 @@ class MisterVizWindow(Gtk.Window):# {{{
 				return
 		self.res.last_rumble = event.timestamp()
 
-		self.global_x_offset, self.global_y_offset = plot_course((0, 0), random.random() * (math.pi * 2), 30)
-		#self.darea.queue_draw()
-		if self.rumble_handler_source is not None:
-			GLib.source_remove(self.rumble_handler_source)
-			self.rumble_handler_source = None
-		GLib.timeout_add(int(1000 / 10), self.rumble_finished_handler)
+		if self.rumble_handler_source is None:
+			self.global_x_offset, self.global_y_offset = plot_course((0, 0), random.random() * (math.pi * 2), 30)
+			self.trigger_draw()
+			self.rumble_handler_source = GLib.timeout_add(int(1000 / 30), self.rumble_finished_handler)
 	# }}}
 	def rumble_finished_handler(self):# {{{
 		if self.rumble_handler_source is not None:
@@ -2427,8 +2490,22 @@ class MisterVizWindow(Gtk.Window):# {{{
 			self.rumble_handler_source = None
 		self.global_x_offset = 0
 		self.global_y_offset = 0
-		self.darea.queue_draw()
+		self.trigger_draw()
 	# }}}
+# }}}
+
+class MisterVizWindow(MisterVizWindowStub):
+	def __init__(self, parent, window_id=None, controller_resource=None, permit_alpha=True):
+		super().__init__(parent, window_id=window_id, controller_resource=controller_resource, permit_alpha=permit_alpha)
+		self.darea = Gtk.DrawingArea()
+		self.main_widget = self.darea
+		self.darea.connect("draw", self.draw_handler)
+		self.darea.set_events(Gdk.EventMask.BUTTON_PRESS_MASK)
+		self.darea.connect("button-press-event", self.darea_click_handler)
+		self.add(self.darea)
+		self.show_all()
+	def trigger_draw(self, *args):# {{{
+		self.darea.queue_draw()
 	def draw_handler(self, widget, cr):# {{{
 		if self.parent.debug:
 			print(f"{time.time()} draw_handler begin", file=sys.stderr)
@@ -2511,7 +2588,79 @@ class MisterVizWindow(Gtk.Window):# {{{
 		if self.parent.debug:
 			print(f"{time.time()} draw_handler finish", file=sys.stderr)
 	# }}}
-# }}}
+	def pixbuf_receive_handler(self, key, pixbuf, x_offset, y_offset, scalefactor):# {{{
+		print(f"Receiving pixbuf for state: {key} (scale factor {scalefactor})")
+		if key is None:
+			# A key of None means we're receiving a base pixbuf
+			if self.viz_width is None and self.viz_height is None:
+				# If our viz_width and viz_height values are None, we're receiving our first pixbuf,
+				# which is of scalefactor 1.0. We use this pixbuf's dimensions to set viz_width and viz_height.
+				self.viz_width = pixbuf.get_width()
+				self.viz_height = pixbuf.get_height()
+				#print(f"Setting viz dimensions to {self.viz_width}x{self.viz_height}")
+				if self.scalefactor != 1.0:
+					# If our actual desired scalefactor isn't 1.0, resubmit a scale request for the proper
+					# desired scalefactor.
+					#print(f"Resubmitting SVG for scalefactor {self.scalefactor}")
+					self.parent.scaler.scale_svg([self.window_id, None], self.res.svgs[None], self.scalefactor)
+					return
+			self.pixbufs = {}
+			self.pixbufs[key] = [pixbuf, x_offset, y_offset]
+			self.trigger_draw()
+			self.inflight = False
+			self.scalefactor = scalefactor
+			#self.resize_handler_id = self.connect("size-allocate", self.resize_handler)
+			if self.resize_handler_id is not None:
+				self.disconnect(self.resize_handler_id)
+				self.resize_handler_id = None
+			self.resize_to(int(self.viz_width * self.scalefactor), int(self.viz_height * self.scalefactor))
+			#self.resize(int(self.viz_width * self.scalefactor), int(self.viz_height * self.scalefactor))
+			GLib.timeout_add(1000, self.resize_handler_reinstate)
+			#self.resize_handler_id = self.connect("size-allocate", self.resize_handler)
+		else:
+			if scalefactor != self.scalefactor:
+				return
+			#print(f"Adding pixbuf for state {key}")
+			self.pixbufs[key] = [pixbuf, x_offset, y_offset]
+
+		next_pixbuf_key = None
+		allstate = set()
+		for x in self.res.buttons.values():
+			if x.on_stick:
+				continue
+			allstate |= x.get_state()
+		for x in self.res.axes.values():
+			allstate |= x.get_state()
+		if key in allstate:
+			self.trigger_draw()
+		# Populate sticks first
+		for k, stick in self.res.sticks.items():
+			if stick.has_button:
+				if stick.button.value:
+					pixkey = f"button:{k}"
+				else:
+					pixkey = f"stick:{k}"
+			else:
+				pixkey = f"stick:{k}"
+			if pixkey not in self.pixbufs:
+				next_pixbuf_key = pixkey
+		# Done with sticks? See if there's anything currently being pressed we need to populate.
+		if next_pixbuf_key is None:
+			for key in allstate:
+				if key in self.res.svgs and key not in self.pixbufs:
+					next_pixbuf_key = key
+					break
+		# Done with stuff in state? Cache up anything else.
+		if next_pixbuf_key is None:
+			for k in self.res.svgs:
+				if k not in self.pixbufs:
+					next_pixbuf_key = k
+					break
+
+		if next_pixbuf_key is not None:
+			self.parent.scaler.scale_svg([self.window_id, next_pixbuf_key], self.res.svgs[next_pixbuf_key], self.scalefactor)
+	# }}}
+	# }}}
 
 class MisterSeenEventsWindow(Gtk.Window):# {{{
 	def __init__(self, parent):# {{{
@@ -2677,6 +2826,7 @@ if __name__ == '__main__':
 		parser.add_argument("-l", "--log-file", action="store", dest="log_file", default=None, help="Write events to log file LOG_FILE. Use magic name \":auto:\" to auto-create based on time and date.")
 		parser.add_argument("-p", "--ptt", action="append", dest="ptt_states", default=[], help="Add this state to the list of push-to-talk buttons. Can be specified multiple times Format: vid:pid:type:name:minval:maxval or controllername:type:name:minval:maxval")
 		parser.add_argument("-w", "--width", action="store", dest="width", default=None, type=int)
+		parser.add_argument("--no-clutter", action="store_false", dest="use_clutter", default=True, help="Use cairo instead of clutter")
 		args = parser.parse_args()
 		if args.log_file == ':auto:':
 			nao = datetime.datetime.now()
@@ -2684,7 +2834,7 @@ if __name__ == '__main__':
 			log_file = f"mister_viz__{naostr}.log"
 		else:
 			log_file = args.log_file
-		app = MisterViz(args.hostname, debug=args.debug, do_window=args.do_window, do_viz=args.do_viz, log_file=log_file, ptt_states=args.ptt_states, width=args.width)
+		app = MisterViz(args.hostname, debug=args.debug, do_window=args.do_window, do_viz=args.do_viz, log_file=log_file, ptt_states=args.ptt_states, width=args.width, use_clutter=args.use_clutter)
 	else:
 		app = MisterViz(None)
 
