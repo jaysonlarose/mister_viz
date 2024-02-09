@@ -55,6 +55,7 @@ class MisterVizClutterWindow(MisterVizWindowStub):
 		self.add(self.clut)
 		#self.set_property("opacity", 0.5)
 		self.set_property("opacity", 1.0)
+		self.main_widget.connect("button-press-event", self.darea_click_handler)
 		self.show_all()
 
 	def trigger_draw(self, *args):
