@@ -1,6 +1,18 @@
 // debug: gcc -g -DDEBUG -o mister_viz_server mister_viz_server.c `pkg-config --cflags --libs libudev`
 // gcc -Wall -O2 -s -o mister_viz_server mister_viz_server.c `pkg-config --cflags --libs libudev`
 
+/* mister_viz_server
+ * A standalone implementation of the mister_viz protocol for Linux systems,
+ * written in C.
+ *
+ * Works well on the Steam Deck, which is the intended use case.
+ *
+ * Socket bind address and port are hardcoded.
+ *
+ * Any input devices that have EVIOCGRAB called on them will not be captured.
+ *
+ */
+
 #include <stdio.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -26,102 +38,102 @@
 #define FD_TYPE_LISTENSOCKET 3
 #define FD_TYPE_CLIENTSOCKET 4
 
-typedef struct deviceinfo {
+typedef struct deviceinfo_t {
 	char *name;
 	uint8_t type;
 	uint16_t vendor_id;
 	uint16_t product_id;
-} deviceinfo;
+} deviceinfo_t;
 
-typedef struct pollpool {
+typedef struct state_t {
 	nfds_t len;
 	struct udev *udev_context;
 	struct udev_monitor *monitor;
 	struct pollfd *pool;
-	struct deviceinfo *info;
-} pollpool;
+	struct deviceinfo_t *info;
+} state_t;
 
-pollpool *pollpool_create(void) {
-	pollpool *ret = (pollpool *) malloc(sizeof(pollpool));
+state_t *state_create(void) {
+	state_t *ret = (state_t *) malloc(sizeof(state_t));
 	ret->len = 0;
 	ret->pool = NULL;
 	ret->info = NULL;
 	return ret;
 }
 
-void pollpool_destroy(pollpool *pool) {
+void state_destroy(state_t *state) {
 	nfds_t i;
-	if (pool->pool != NULL) {
-		for (i = 0; i < pool->len; i++) {
-			if (pool->pool[i].fd >= 0) {
-				close(pool->pool[i].fd);
+	if (state->pool != NULL) {
+		for (i = 0; i < state->len; i++) {
+			if (state->pool[i].fd >= 0) {
+				close(state->pool[i].fd);
 			}
 		}
-		free(pool->pool);
+		free(state->pool);
 	}
-	if (pool->info != NULL) {
-		for (i = 0; i < pool->len; i++) {
-			if (pool->info[i].name != NULL) {
-				free(pool->info[i].name);
+	if (state->info != NULL) {
+		for (i = 0; i < state->len; i++) {
+			if (state->info[i].name != NULL) {
+				free(state->info[i].name);
 			}
 		}
-		free(pool->info);
+		free(state->info);
 	}
-	free(pool);
+	free(state);
 }
 
-nfds_t pollpool_add(pollpool *pool) {
-	/* Adds a new blank entry into the pool struct. */
+nfds_t state_add(state_t *state) {
+	/* Adds a new blank entry into the state struct. */
 	/* Returns the index number for the new entry. */
-	nfds_t idx = pool->len;
-	pool->pool = (struct pollfd *) realloc(pool->pool, sizeof(struct pollfd) * (pool->len + 1));
-	pool->info = (deviceinfo *) realloc(pool->info, sizeof(deviceinfo) * (pool->len + 1));
-	pool->len++;
+	nfds_t idx = state->len;
+	state->pool = (struct pollfd *) realloc(state->pool, sizeof(struct pollfd) * (state->len + 1));
+	state->info = (deviceinfo_t *) realloc(state->info, sizeof(deviceinfo_t) * (state->len + 1));
+	state->len++;
 
-	pool->pool[idx].fd = -1;
-	pool->pool[idx].events = 0;
-	pool->pool[idx].revents = 0;
-	pool->info[idx].name = NULL;
-	pool->info[idx].type = FD_TYPE_UNDEFINED;
-	//struct pollfd *ret = (&(pool->pool))[pool->len - 1];
+	state->pool[idx].fd = -1;
+	state->pool[idx].events = 0;
+	state->pool[idx].revents = 0;
+	state->info[idx].name = NULL;
+	state->info[idx].type = FD_TYPE_UNDEFINED;
+	//struct pollfd *ret = (&(state->pool))[state->len - 1];
 	//memset(ret, -1, sizeof(struct pollfd));
-	//deviceinfo *info = pool->info[pool->len - 1];
+	//deviceinfo_t *info = state->info[state->len - 1];
 	//info->name = NULL;
-	//memset(pool->pool[pool->len - 1], 0, sizeof(struct pollfd));
+	//memset(state->pool[state->len - 1], 0, sizeof(struct pollfd));
 
-	//struct pollfd *ret = pool->pool[pool->len - 1];
+	//struct pollfd *ret = state->pool[state->len - 1];
 	return idx;
 }
 
-void pollpool_remove(pollpool *pool, nfds_t idx) {
-	/* Removes entry at index `idx` from the pool struct. */
+void state_remove(state_t *state, nfds_t idx) {
+	/* Removes entry at index `idx` from the state struct. */
 	/* Items occurring past this entry will be moved to fill in the gap. */
-	if (pool->pool[idx].fd >= 0) {
-		//printf("closing fd %d\n", pool->pool[idx].fd);
-		close(pool->pool[idx].fd);
+	if (state->pool[idx].fd >= 0) {
+		//printf("closing fd %d\n", state->pool[idx].fd);
+		close(state->pool[idx].fd);
 	}
-	if (pool->info[idx].name != NULL) {
-		free(pool->info[idx].name);
+	if (state->info[idx].name != NULL) {
+		free(state->info[idx].name);
 	}
-	for (nfds_t i = idx; i < (pool->len - 1); i++) {
+	for (nfds_t i = idx; i < (state->len - 1); i++) {
 		//printf("shuffling idx %ld to %ld\n", i+1, i);
-		memcpy(&(pool->pool[i]), &(pool->pool[i+1]), sizeof(struct pollfd));
-		memcpy(&(pool->info[i]), &(pool->info[i+1]), sizeof(deviceinfo));
+		memcpy(&(state->pool[i]), &(state->pool[i+1]), sizeof(struct pollfd));
+		memcpy(&(state->info[i]), &(state->info[i+1]), sizeof(deviceinfo_t));
 	}
-	pool->len--;
-	//printf("Realloccing pool to size %ld\n", sizeof(struct pollfd *) * pool->len);
-	pool->pool = (struct pollfd *) realloc(pool->pool, sizeof(struct pollfd) * pool->len);
-	//printf("Reallocing info to size %ld\n", sizeof(deviceinfo) * pool->len);
-	pool->info = (deviceinfo *) realloc(pool->info, sizeof(deviceinfo) * pool->len);
+	state->len--;
+	//printf("Realloccing state to size %ld\n", sizeof(struct pollfd *) * state->len);
+	state->pool = (struct pollfd *) realloc(state->pool, sizeof(struct pollfd) * state->len);
+	//printf("Reallocing info to size %ld\n", sizeof(deviceinfo_t) * state->len);
+	state->info = (deviceinfo_t *) realloc(state->info, sizeof(deviceinfo_t) * state->len);
 }
 
-void pollpool_print(pollpool *pool) {
-	printf("Poll pool contains %ld items:\n", pool->len);
-	for (nfds_t i = 0; i < pool->len; i++) {
-		//struct pollfd *p = (&(pool->pool))[i];
+void state_print(state_t *state) {
+	printf("Poll state contains %ld items:\n", state->len);
+	for (nfds_t i = 0; i < state->len; i++) {
+		//struct pollfd *p = (&(state->pool))[i];
 		printf("  item %ld:\n", i);
-		printf("    fd: %d\n", pool->pool[i].fd);
-		printf("    name: %s\n", pool->info[i].name);
+		printf("    fd: %d\n", state->pool[i].fd);
+		printf("    name: %s\n", state->info[i].name);
 	}
 	printf("\n");
 }
@@ -143,7 +155,7 @@ struct __attribute__((__packed__)) input_socket_packet {
 #define OP_PING  1
 #define OP_PONG  2
 
-void input_socket_send(pollpool *pool, uint16_t vid, uint16_t pid, struct input_event *ev) {
+void input_socket_send(state_t *state, uint16_t vid, uint16_t pid, struct input_event *ev) {
 	struct input_socket_packet packet;
 	packet.opcode = OP_INPUT;
 	packet.index  = 0;
@@ -156,14 +168,16 @@ void input_socket_send(pollpool *pool, uint16_t vid, uint16_t pid, struct input_
 	packet.tv_sec = ev->time.tv_sec;
 	packet.tv_usec = ev->time.tv_usec;
 
-	for (nfds_t i = 0; i < pool->len; i++) {
-		if (pool->info[i].type == FD_TYPE_CLIENTSOCKET) {
-			write(pool->pool[i].fd, (char *) &packet, sizeof(packet));
+	for (nfds_t i = 0; i < state->len; i++) {
+		if (state->info[i].type == FD_TYPE_CLIENTSOCKET) {
+			if (write(state->pool[i].fd, (char *) &packet, sizeof(packet)) != sizeof(packet)) {
+				printf("WARNING: input_socket_send failed to write all data!\n");
+			}
 		}
 	}
 }
 
-void handle_udev_device(pollpool *pool, struct udev_device *udevice) {
+void handle_udev_device(state_t *state, struct udev_device *udevice) {
 	const char *devnode = udev_device_get_devnode(udevice);
 
 	if (devnode != NULL) {
@@ -193,17 +207,16 @@ void handle_udev_device(pollpool *pool, struct udev_device *udevice) {
 				//printf("productid: %04x\n", pid);
 
 
-				//struct pollfd *pollslot = pollpool_add(pool);
-				nfds_t idx = pollpool_add(pool);
-				struct pollfd *pollslot = &(pool->pool[idx]);
-				deviceinfo *infoslot    = &(pool->info[idx]);
+				nfds_t idx = state_add(state);
+				struct pollfd *pollslot = &(state->pool[idx]);
+				deviceinfo_t *infoslot  = &(state->info[idx]);
 
 				//printf("Pollslot fd: %d\n", pollslot->fd);
-				//printf("Pollslot fd: %d\n", pool->pool[idx].fd);
+				//printf("Pollslot fd: %d\n", state->pool[idx].fd);
 				pollslot->fd = fd;
 				pollslot->events = POLLIN;
 				//printf("Pollslot fd: %d\n", pollslot->fd);
-				//printf("Pollslot fd: %d\n", pool->pool[idx].fd);
+				//printf("Pollslot fd: %d\n", state->pool[idx].fd);
 				infoslot->vendor_id = vid;
 				infoslot->product_id = pid;
 
@@ -214,13 +227,13 @@ void handle_udev_device(pollpool *pool, struct udev_device *udevice) {
 				infoslot->name = strdup(devname_temp);
 				//printf("device name: %s\n", infoslot->name);
 				//printf("device name strlen: %ld\n", strlen(infoslot->name));
-				//printf("device name: %s\n", pool->info[idx].name);
-				printf("Adding input device: %s\n", pool->info[idx].name);
+				//printf("device name: %s\n", state->info[idx].name);
+				printf("Adding input device: %s\n", state->info[idx].name);
 
 				infoslot->type = FD_TYPE_INPUT;
 				
 				//close(fd);
-				//pollpool_print(pool);
+				//state_print(state);
 
 			}
 		}
@@ -236,23 +249,23 @@ void handle_udev_device(pollpool *pool, struct udev_device *udevice) {
 	//printf("\n");
 }
 
-void check_input(pollpool *pool) {
-	int return_value = poll(pool->pool, pool->len, -1);
+void check_input(state_t *state) {
+	int return_value = poll(state->pool, state->len, -1);
 	//printf("poll return value: %d\n", return_value);
 	if (return_value > 0) {
-		for (nfds_t i = 0; i < pool->len; i++) {
-			//printf("slot %ld type %d revents %d\n", i, pool->info[i].type, pool->pool[i].revents);
-			switch(pool->info[i].type) {
+		for (nfds_t i = 0; i < state->len; i++) {
+			//printf("slot %ld type %d revents %d\n", i, state->info[i].type, state->pool[i].revents);
+			switch(state->info[i].type) {
 				case FD_TYPE_UDEV:
-					if (pool->pool[i].revents > 0) {
-						//printf("Udev has something to say! revents: %d\n", pool->pool[i].revents);
+					if (state->pool[i].revents > 0) {
+						//printf("Udev has something to say! revents: %d\n", state->pool[i].revents);
 					}
-					if (pool->pool[i].revents & POLLIN) {
-						pool->pool[i].revents &= ~POLLIN;
-						struct udev_device *udevice = udev_monitor_receive_device(pool->monitor);
+					if (state->pool[i].revents & POLLIN) {
+						state->pool[i].revents &= ~POLLIN;
+						struct udev_device *udevice = udev_monitor_receive_device(state->monitor);
 						if (udevice) {
 							if (strcmp(udev_device_get_action(udevice), "add") == 0) {
-								handle_udev_device(pool, udevice);
+								handle_udev_device(state, udevice);
 							}
 							//printf("  action: %s, devnode: %s, subsystem: %s\n", udev_device_get_action(udevice), udev_device_get_devnode(udevice), udev_device_get_subsystem(udevice));
 							udev_device_unref(udevice);
@@ -261,91 +274,93 @@ void check_input(pollpool *pool) {
 					break;
 				case FD_TYPE_INPUT:
 					bool do_print = false;
-					if (pool->pool[i].revents > 0) {
+					if (state->pool[i].revents > 0) {
 						do_print = true;
 					}
 					if (do_print) {
-						//printf("Device %ld (%s) revents: %d\n", i, pool->info[i].name, pool->pool[i].revents);
+						//printf("Device %ld (%s) revents: %d\n", i, state->info[i].name, state->pool[i].revents);
 					}
-					if (pool->pool[i].revents & POLLIN) {
+					if (state->pool[i].revents & POLLIN) {
 						//printf("  POLLIN\n");
-						pool->pool[i].revents &= ~POLLIN;
+						state->pool[i].revents &= ~POLLIN;
 						struct input_event ev;
 						memset(&ev, 0, sizeof(ev));
-						if (read(pool->pool[i].fd, &ev, sizeof(ev)) == sizeof(ev)) {
+						if (read(state->pool[i].fd, &ev, sizeof(ev)) == sizeof(ev)) {
 							//printf("  %ld.%06ld: read event!\n", ev.time.tv_sec, ev.time.tv_usec);
-							input_socket_send(pool, pool->info[i].vendor_id, pool->info[i].product_id, &ev);
+							input_socket_send(state, state->info[i].vendor_id, state->info[i].product_id, &ev);
 						}
 					}
-					if (pool->pool[i].revents > 0) {
-						printf("  UNKNOWN EVENT (revents: %d)\n", pool->pool[i].revents);
+					if (state->pool[i].revents > 0) {
+						printf("  UNKNOWN EVENT (revents: %d)\n", state->pool[i].revents);
 					}
-					if (pool->pool[i].revents & POLLHUP) {
+					if (state->pool[i].revents & POLLHUP) {
 						printf("  POLLHUP\n");
-						pollpool_remove(pool, i);
+						state_remove(state, i);
 						i--;  // careful, modifying i here!
 					}
 					break;
 				case FD_TYPE_LISTENSOCKET:
-					if (pool->pool[i].revents & POLLIN) {
-						pool->pool[i].revents &= ~POLLIN;
+					if (state->pool[i].revents & POLLIN) {
+						state->pool[i].revents &= ~POLLIN;
 						//printf("Accepting socket\n");
-						int client = accept(pool->pool[i].fd, NULL, NULL);
-						nfds_t idx = pollpool_add(pool);
-						pool->pool[idx].fd = client;
-						pool->pool[idx].events = POLLIN;
-						pool->info[idx].type = FD_TYPE_CLIENTSOCKET;
+						int client = accept(state->pool[i].fd, NULL, NULL);
+						nfds_t idx = state_add(state);
+						state->pool[idx].fd = client;
+						state->pool[idx].events = POLLIN;
+						state->info[idx].type = FD_TYPE_CLIENTSOCKET;
 						/* Get the remote peer address */
 						struct sockaddr_in remote_addr;
 						socklen_t addr_len = sizeof(remote_addr);
-						if (getpeername(pool->pool[idx].fd, (struct sockaddr *)&remote_addr, &addr_len) == 0) {
+						if (getpeername(state->pool[idx].fd, (struct sockaddr *)&remote_addr, &addr_len) == 0) {
 							char ip_str[INET_ADDRSTRLEN];
 							inet_ntop(AF_INET, &(remote_addr.sin_addr), ip_str, INET_ADDRSTRLEN);
 							//printf("Remote IP: %s, Port: %d\n", ip_str, ntohs(remote_addr.sin_port));
 							char remote_peer_str[256];
 							snprintf(remote_peer_str, 255, "%s:%d", ip_str, ntohs(remote_addr.sin_port));
-							pool->info[idx].name = strdup(remote_peer_str);
+							state->info[idx].name = strdup(remote_peer_str);
 						} else {
 							//printf("Getpeername failed\n");
-							pool->info[idx].name = strdup("client socket");
+							state->info[idx].name = strdup("client socket");
 						}
-						printf("Connected: %s\n", pool->info[idx].name);
+						printf("Connected: %s\n", state->info[idx].name);
 
 					}
-					if (pool->pool[i].revents > 0) {
-						printf("Unhandled revents for listen socket: %d\n", pool->pool[i].revents);
+					if (state->pool[i].revents > 0) {
+						printf("Unhandled revents for listen socket: %d\n", state->pool[i].revents);
 					}
 					break;
 				case FD_TYPE_CLIENTSOCKET:
 					bool do_close = false;
-					if (pool->pool[i].revents & POLLIN) {
-						pool->pool[i].revents &= ~POLLIN;
+					if (state->pool[i].revents & POLLIN) {
+						state->pool[i].revents &= ~POLLIN;
 						char trash[1];
-						int rlen = read(pool->pool[i].fd, trash, 1);
+						int rlen = read(state->pool[i].fd, trash, 1);
 						if (rlen == 0) {
 							do_close = true;
 						} else {
 							uint8_t opcode = trash[0];
 							if (opcode == OP_PING) {
 								trash[0] = OP_PONG;
-								write(pool->pool[i].fd, (char *) trash, 1);
+								if (write(state->pool[i].fd, (char *) trash, 1) != 1) {
+									printf("WARNING: failed to send PING response!\n");
+								}
 							} else {
-								printf("Unknown opcode %d from %s, dropping client\n", opcode, pool->info[i].name);
+								printf("Unknown opcode %d from %s, dropping client\n", opcode, state->info[i].name);
 								do_close = true;
 							}
 						}
 					}
-					if (pool->pool[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+					if (state->pool[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
 						do_close = true;
-						pool->pool[i].revents &= ~(POLLERR | POLLHUP | POLLNVAL);
+						state->pool[i].revents &= ~(POLLERR | POLLHUP | POLLNVAL);
 					}
-					if (pool->pool[i].revents > 0) {
-						printf("Unhandled events for client %s: %d\n", pool->info[i].name, pool->pool[i].revents);
+					if (state->pool[i].revents > 0) {
+						printf("Unhandled events for client %s: %d\n", state->info[i].name, state->pool[i].revents);
 					}
 					if (do_close) {
-						printf("closing socket %ld\n", i);
-						shutdown(pool->pool[i].fd, SHUT_RDWR);
-						pollpool_remove(pool, i);
+						printf("closing client %s\n", state->info[i].name);
+						shutdown(state->pool[i].fd, SHUT_RDWR);
+						state_remove(state, i);
 						i--; // careful, modifying i here!
 					}
 					break;
@@ -358,10 +373,10 @@ void check_input(pollpool *pool) {
 }
 
 int main(int argc, char **argv) {
-	pollpool *pool = pollpool_create();
-	pool->udev_context = udev_new();
+	state_t *state = state_create();
+	state->udev_context = udev_new();
 
-	struct udev_enumerate *enumerator = udev_enumerate_new(pool->udev_context);
+	struct udev_enumerate *enumerator = udev_enumerate_new(state->udev_context);
 
 	udev_enumerate_add_match_subsystem(enumerator, "input");
 	//int result = udev_enumerate_scan_devices(enumerator);
@@ -370,41 +385,41 @@ int main(int argc, char **argv) {
 
 
 
-	nfds_t udev_idx = pollpool_add(pool);
+	nfds_t udev_idx = state_add(state);
 	//printf("Using idx %ld for udev\n", udev_idx);
-	pool->info[udev_idx].name = strdup("udev monitor");
-	pool->info[udev_idx].type = FD_TYPE_UDEV;
+	state->info[udev_idx].name = strdup("udev monitor");
+	state->info[udev_idx].type = FD_TYPE_UDEV;
 
-	//pollpool_print(pool);
+	//state_print(state);
 
 	struct udev_list_entry *udev_entry = udev_enumerate_get_list_entry(enumerator);
 	while (udev_entry != NULL) {
 		const char *syspath = udev_list_entry_get_name(udev_entry);
-		struct udev_device *udevice = udev_device_new_from_syspath(pool->udev_context, syspath);
+		struct udev_device *udevice = udev_device_new_from_syspath(state->udev_context, syspath);
 		//printf("%s\n", syspath);
-		handle_udev_device(pool, udevice);
+		handle_udev_device(state, udevice);
 		udev_device_unref(udevice);
 		udev_entry = udev_list_entry_get_next(udev_entry);
 	}
 
 	udev_enumerate_unref(enumerator);
 
-	pool->monitor = udev_monitor_new_from_netlink(pool->udev_context, "udev");
-	if (!pool->monitor) {
+	state->monitor = udev_monitor_new_from_netlink(state->udev_context, "udev");
+	if (!state->monitor) {
 		fprintf(stderr, "Failed to create udev monitor!\n");
 		return EXIT_FAILURE;
 	}
-	if (udev_monitor_filter_add_match_subsystem_devtype(pool->monitor, "input", NULL) < 0) {
+	if (udev_monitor_filter_add_match_subsystem_devtype(state->monitor, "input", NULL) < 0) {
 		fprintf(stderr, "Failed to add subsystem filter to udev monitor!\n");
 		return EXIT_FAILURE;
 	}
-	if (udev_monitor_enable_receiving(pool->monitor) < 0) {
+	if (udev_monitor_enable_receiving(state->monitor) < 0) {
 		fprintf(stderr, "Failed to enable receiving on udev monitor!\n");
 		return EXIT_FAILURE;
 	}
 
-	pool->pool[udev_idx].fd = udev_monitor_get_fd(pool->monitor);
-	pool->pool[udev_idx].events = POLLIN;
+	state->pool[udev_idx].fd = udev_monitor_get_fd(state->monitor);
+	state->pool[udev_idx].events = POLLIN;
 
 	/* Socket Initialization */
 	int port = SOCKET_BINDPORT;
@@ -433,12 +448,12 @@ int main(int argc, char **argv) {
 		printf("can't listen to port\n");
 		return EXIT_FAILURE;
 	}
-	nfds_t listensock_idx = pollpool_add(pool);
+	nfds_t listensock_idx = state_add(state);
 	printf("Using idx %ld for listen socket\n", listensock_idx);
-	pool->pool[listensock_idx].fd   = sock;
-	pool->pool[listensock_idx].events = POLLIN;
-	pool->info[listensock_idx].name = strdup("listen socket");
-	pool->info[listensock_idx].type = FD_TYPE_LISTENSOCKET;
+	state->pool[listensock_idx].fd   = sock;
+	state->pool[listensock_idx].events = POLLIN;
+	state->info[listensock_idx].name = strdup("listen socket");
+	state->info[listensock_idx].type = FD_TYPE_LISTENSOCKET;
 
 	printf("Listening on port %d\n", port);
 	printf("  sizeof struct timeval: %ld\n", sizeof(struct timeval));
@@ -446,12 +461,12 @@ int main(int argc, char **argv) {
 	printf("  sizeof struct input_socket_packet: %ld\n", sizeof(struct input_socket_packet));
 
 	while (true) {
-		check_input(pool);
+		check_input(state);
 	}
 
 
-	udev_unref(pool->udev_context);
+	udev_unref(state->udev_context);
 
-	pollpool_destroy(pool);
+	state_destroy(state);
 	return 0;
 }
