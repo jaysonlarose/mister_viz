@@ -311,9 +311,9 @@ class OpenVizslaReader(GObject.GObject):
 		return True
 
 pat_usbreset_device = re.compile("Number " +
-	"(?P<busnum>\d+)\/(?P<devnum>\d+)  ID " +
-	"(?P<vendorid>[0-9a-f]+):(?P<productid>[0-9a-f]+)  " +
-	"(?P<devicename>.*)$")
+	r"(?P<busnum>\d+)\/(?P<devnum>\d+)  ID " +
+	r"(?P<vendorid>[0-9a-f]+):(?P<productid>[0-9a-f]+)  " +
+	r"(?P<devicename>.*)$")
 def usbreset(device=None):
 	if device is None:
 		ret = []

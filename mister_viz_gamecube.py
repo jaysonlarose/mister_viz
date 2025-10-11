@@ -43,6 +43,11 @@ class Reader(GObject.GObject):
 			GLib.source_remove(self.io_source)
 			self.io_source = None
 
+class Event:
+	__slots__ = ['timestamp', 'payload']
+	def __init__(self, timestamp, value):
+		self.timestamp = timestamp
+		self.payload = value
 
 class Parser(GObject.GObject):
 	__gsignals__ = {
@@ -54,7 +59,8 @@ class Parser(GObject.GObject):
 		value = line.replace(" ", "")
 		#print(repr(line))
 		value = binascii.unhexlify(value)
-		self.emit("event", value)
+		event = Event(timestamp, value)
+		self.emit("event", event)
 
 
 class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
@@ -99,32 +105,33 @@ class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
 	def event_handler(self, widget, event):
 		self.last_event = event
 		dirty = False
-		if len(event) != 8:
-			return
 		state = set()
-		if event[0] & 0x01:
+		payload = event.payload
+		if len(payload) != 8:
+			return
+		if payload[0] & 0x01:
 			state.add("a")
-		if event[0] & 0x02:
+		if payload[0] & 0x02:
 			state.add("b")
-		if event[0] & 0x08:
+		if payload[0] & 0x08:
 			state.add("y")
-		if event[0] & 0x04:
+		if payload[0] & 0x04:
 			state.add("x")
-		if event[0] & 0x10:
+		if payload[0] & 0x10:
 			state.add("start")
-		if event[1] & 0x01:
+		if payload[1] & 0x01:
 			state.add("left")
-		if event[1] & 0x02:
+		if payload[1] & 0x02:
 			state.add("right")
-		if event[1] & 0x04:
+		if payload[1] & 0x04:
 			state.add("down")
-		if event[1] & 0x08:
+		if payload[1] & 0x08:
 			state.add("up")
-		if event[1] & 0x10:
+		if payload[1] & 0x10:
 			state.add("z")
-		if event[1] & 0x20:
+		if payload[1] & 0x20:
 			state.add("r")
-		if event[1] & 0x40:
+		if payload[1] & 0x40:
 			state.add("l")
 
 		for k, v in self.button_elements.items():
@@ -137,23 +144,23 @@ class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
 				dirty = True
 
 		limits = self.axis_limits['lstick']
-		stick_x = event[2]
-		stick_y = event[3]
+		stick_x = payload[2]
+		stick_y = payload[3]
 		limits['x'][2] = stick_x
 		limits['y'][2] = 0xff - stick_y
 
 		limits = self.axis_limits['rstick']
-		stick_x = event[4]
-		stick_y = event[5]
+		stick_x = payload[4]
+		stick_y = payload[5]
 		limits['x'][2] = stick_x
 		limits['y'][2] = 0xff - stick_y
 
-		pos = event[7]
+		pos = payload[7]
 		if self.res.axes['r'].value != pos:
 			self.res.axes['r'].set_value(pos)
 			dirty = True
 
-		pos = event[6]
+		pos = payload[6]
 		if self.res.axes['l'].value != pos:
 			self.res.axes['l'].set_value(pos)
 			dirty = True

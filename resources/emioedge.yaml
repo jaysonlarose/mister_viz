@@ -1,0 +1,19 @@
+name: JaysTech Emio Edge
+vid: 0x2341
+pid: 0x8036
+svg: pro2.svg
+buttons:
+  BTN_A: b
+  BTN_B: a
+  BTN_C: select
+  BTN_X: start
+  BTN_Y: heart
+axes:
+  ABS_X:
+    binary:
+      left: [0, 0]
+      right: [254, 254]
+  ABS_Y:
+    binary:
+      up: [0, 0]
+      down: [254, 254]

@@ -4,10 +4,10 @@ pid: 0x2049
 svg: nes.svg
 primary: true
 buttons:
-  JOYBUTTON_0: A
-  JOYBUTTON_1: B
-  JOYBUTTON_2: Select
-  JOYBUTTON_3: Start
+  JOYBUTTON_0: a
+  JOYBUTTON_1: b
+  JOYBUTTON_2: select
+  JOYBUTTON_3: start
 axes:
   ABS_X:
     binary:

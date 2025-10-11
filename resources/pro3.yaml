@@ -1,7 +1,7 @@
-name: 8Bitdo Pro 2
+name: 8Bitdo Pro 3
 vid: 0x2dc8
-pid: 0x6006
-svg: pro2_new.svg
+pid: 0x6009
+svg: pro3.svg
 primary: true
 has_rumble: true
 buttons:
@@ -18,6 +18,8 @@ buttons:
   BTN_MODE: heart
   BTN_Z: lpaddle
   BTN_C: rpaddle
+  BTN_TRIGGER_HAPPY1: l4
+  BTN_TRIGGER_HAPPY2: r4
 axes:
   ABS_HAT0X:
     binary:

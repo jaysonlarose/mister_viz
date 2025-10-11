@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import gi, os, sys, mister_viz, cairo, traceback
+import gi, os, sys, mister_viz, cairo, traceback, math
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("Clutter", "1.0")
@@ -42,6 +42,8 @@ class MisterVizClutterWindow(MisterVizWindowStub):
 		super().__init__(parent, window_id=window_id, controller_resource=controller_resource, permit_alpha=permit_alpha)
 		self.local_x_offset = 0
 		self.local_y_offset = 0
+		self.actors = {}
+		self.cairo_actor = None
 
 		self.clut = GtkClutter.Embed()
 		self.clut.set_visible(True)
@@ -57,6 +59,69 @@ class MisterVizClutterWindow(MisterVizWindowStub):
 		self.set_property("opacity", 1.0)
 		self.main_widget.connect("button-press-event", self.darea_click_handler)
 		self.show_all()
+		#self.main_widget.connect("draw", self.draw_handler)
+
+	def draw_handler(self, widget, ctx, width, height):
+		w = width
+		h = height
+		#print(f"w x h: {w} x {h}")
+		ctx.set_operator(cairo.OPERATOR_SOURCE)
+		ctx.set_source_rgba(0, 0, 0, 0)
+		ctx.paint()
+		#ctx.set_source_rgba(1, 1, 1, 1)
+		#ctx.move_to(0, 0)
+		#ctx.line_to(w, h)
+		#ctx.stroke()
+		#ctx.paint()
+		offsets = {
+			'x': 0,
+			'y': 0,
+		}
+		for k, relative in self.res.relatives.items():
+			#print(f"{k}")
+			pixkey = f"relative:{k}"
+			if pixkey in self.pixbufs:
+				w = self.pixbufs[pixkey][0].get_width() / 2
+				h = self.pixbufs[pixkey][0].get_height() / 2
+				center = [self.pixbufs[pixkey][1] + w, self.pixbufs[pixkey][2] + h]
+				radius = w
+				#print(f"radius: {radius}")
+				arrow_width = radius / 5 
+				arrow_minlength = radius / 3
+				#print(f"arrow_width: {arrow_width}")
+				for off in offsets:
+					axis = getattr(relative, f"{off}_axis")
+					if axis is not None and axis.value is not None:
+						offsets[off] = mister_viz.translate_constrainedint(axis.value, axis.min_value, axis.max_value, -radius, radius)
+				maxrange = radius * 2
+				angle = math.degrees(math.atan2(offsets['y'], offsets['x'])) + 90
+				magnitude = math.sqrt(offsets['x'] * offsets['x'] + offsets['y'] * offsets['y']) * 2
+				#print(f"Magnitude: {magnitude}")
+				#if not hasattr(relative, "reset_source"):
+				#	relative.reset_source = None
+				#if relative.is_dirty:
+				#	if magnitude > 0.0:
+				#		if relative.reset_source is not None:
+				#			GLib.source_remove(relative.reset_source)
+				#			relative.reset_source = None
+				#		print(f"scheduling relative reset")
+				#		relative.reset_source = GLib.timeout_add(int(1000 / 30), relative.value_change_reset)
+				if magnitude > 0.0:
+					magnitude = mister_viz.translate_constrainedint(magnitude, 0, maxrange, arrow_minlength, maxrange)
+					offsets['x'] = magnitude * math.cos(angle)
+					offsets['y'] = magnitude * math.sin(angle)
+					arrow_points = mister_viz.rotpoly(mister_viz.make_arrow_points(magnitude, arrow_width), 0, 0, angle)
+					arrow_points = mister_viz.transpoly(arrow_points, *center)
+					ctx.set_source_rgba(*relative.rgba)
+					ctx.move_to(*arrow_points[0])
+					for x, y in arrow_points[1:]:
+						ctx.line_to(x, y)
+					ctx.close_path()
+					ctx.fill()
+					ctx.stroke()
+					#ctx.paint()
+					#print(f"{k}: {center} {radius} {magnitude}")
+				#relative.is_dirty = False
 
 	def trigger_draw(self, *args):
 		import math
@@ -96,6 +161,7 @@ class MisterVizClutterWindow(MisterVizWindowStub):
 					for off in offsets:
 						axis = getattr(stick, f"{off}_axis")
 						if axis is not None and axis.value is not None:
+							#print(f"offsets[off] ({pixkey}) = mister_viz.translate_constrainedint({axis.value}, {axis.min_value}, {axis.max_value}, {axis.min_pos}, {axis.max_pos})")
 							offsets[off] = mister_viz.translate_constrainedint(axis.value, axis.min_value, axis.max_value, axis.min_pos, axis.max_pos)
 					if stick.x_axis is not None and stick.y_axis is not None:
 						circularize = True
@@ -131,6 +197,8 @@ class MisterVizClutterWindow(MisterVizWindowStub):
 						continue
 					self.actors[akey].set_position(self.pixbufs[akey][1] + self.global_x_offset, self.pixbufs[akey][2] + self.global_y_offset)
 					moved_actors.add(akey)
+			if self.cairo_actor is not None:
+				self.cairo_actor.get_content().invalidate()
 		except Exception:
 			for line in traceback.format_exc().splitlines():
 				print(f"exception: {line}", file=sys.stderr)
@@ -156,11 +224,22 @@ class MisterVizClutterWindow(MisterVizWindowStub):
 			self.pixbufs = {}
 			self.stage.remove_all_children()
 			self.actors = {}
+			self.cairo_actor = None
 			self.pixbufs[key] = [pixbuf, x_offset, y_offset]
 			self.actors[key] = pixbuf_to_actor(self.pixbufs[key][0])
 			self.actors[key].set_position(self.pixbufs[key][1] + self.global_x_offset, self.pixbufs[key][2] + self.global_y_offset)
 			self.actors[key].set_z_position(0)
 			self.stage.add_child(self.actors[key])
+			canvas = Clutter.Canvas()
+			canvas.set_size(self.pixbufs[key][0].get_width(), self.pixbufs[key][0].get_height())
+			self.cairo_actor = Clutter.Actor.new()
+			self.cairo_actor.set_content(canvas)
+			self.cairo_actor.set_size(self.pixbufs[key][0].get_width(), self.pixbufs[key][0].get_height())
+			self.cairo_actor.set_opacity(255)
+			self.cairo_actor.set_reactive(True)
+			self.cairo_actor.set_z_position(2)
+			self.stage.add_child(self.cairo_actor)
+			canvas.connect("draw", self.draw_handler)
 			self.inflight = False
 			#self.resize_handler_id = self.connect("size-allocate", self.resize_handler)
 			if self.resize_handler_id is not None:

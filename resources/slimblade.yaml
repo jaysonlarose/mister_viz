@@ -1,0 +1,27 @@
+name: Kensington Slimblade Trackball
+vid: 0x047d
+pid: 0x2041
+svg: slimblade.svg
+primary: true
+buttons:
+  BTN_LEFT: lmb
+  BTN_RIGHT: rmb
+  BTN_MIDDLE: mmb
+  BTN_SIDE: smb
+axes:
+  REL_WHEEL:
+    binary:
+      wheelpos: [1, 1]
+      wheelneg: [-1, -1]
+  REL_X:
+    relative:
+      REL_XY:
+        x:
+          min_value: -127
+          max_value: 127
+  REL_Y:
+    relative:
+      REL_XY:
+        y:
+          min_value: -127
+          max_value: 127

@@ -18,12 +18,12 @@ class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
 		#	self.ptt = mister_viz.JackPushToTalk()
 		self.axis_limits = {
 			'lstick': {
-				'x': [0x00, 0xff, None],
-				'y': [0x00, 0xff, None],
+				'x': [0x00, 0xff, 0x7f],
+				'y': [0x00, 0xff, 0x7f],
 			},
 			'rstick': {
-				'x': [0x00, 0xff, None],
-				'y': [0x00, 0xff, None],
+				'x': [0x00, 0xff, 0x7f],
+				'y': [0x00, 0xff, 0x7f],
 			},
 		}
 
@@ -31,16 +31,20 @@ class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
 		self.res.sticks['lstick'].x_axis.min_value = 0
 		self.res.sticks['lstick'].x_axis.max_value = 255
 		self.res.sticks['lstick'].x_axis.default_value = 127 
+		self.res.sticks['lstick'].x_axis.set_value(127)
 		self.res.sticks['lstick'].y_axis.min_value = 0
 		self.res.sticks['lstick'].y_axis.max_value = 255
 		self.res.sticks['lstick'].y_axis.default_value = 127 
+		self.res.sticks['lstick'].y_axis.set_value(127)
 
 		self.res.sticks['rstick'].x_axis.min_value = 0
 		self.res.sticks['rstick'].x_axis.max_value = 255
 		self.res.sticks['rstick'].x_axis.default_value = 127 
+		self.res.sticks['rstick'].x_axis.set_value(127)
 		self.res.sticks['rstick'].y_axis.min_value = 0
 		self.res.sticks['rstick'].y_axis.max_value = 255
 		self.res.sticks['rstick'].y_axis.default_value = 127 
+		self.res.sticks['rstick'].y_axis.set_value(127)
 		self.res.axes['l2'].is_analog = True
 		self.res.axes['l2'].mapped_to = "l2"
 		self.res.axes['l2'].min_value = 0

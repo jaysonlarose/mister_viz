@@ -1,4 +1,4 @@
-import mister_viz, mister_viz_openvizsla
+import mister_viz, mister_viz_openvizsla, struct, sys
 
 svg_filename = "procontroller.svg"
 
@@ -7,6 +7,7 @@ class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
 	def __init__(self, resources):
 		mister_viz_openvizsla.OpenVizslaTranslator.__init__(self, resources)
 		self.button_elements = dict([ [x.element, x] for x in self.res.buttons.values() ])
+		self.last_event = None
 		self.axis_limits = {
 			'lstick': {
 				'x': [None, None, None],
@@ -34,7 +35,13 @@ class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
 
 	def event_handler(self, widget, event):
 		if event.direction == "IN" and event.payload is not None:
+			self.last_event = event
 			payload = event.payload
+			# Added for the 8bido pro2 in switch mode.
+			# Remove if there are problems...
+			if len(event.payload) != 66:
+				return
+			#print(f"event: {len(event.payload)} {event.payload!r}", file=sys.stderr)
 
 			state = set()
 
@@ -131,6 +138,8 @@ class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
 					mid = ((lim[1] - lim[0]) / 2) + lim[0]
 					axrange = lim[1] - mid
 					offset = lim[2] - mid
+					if axrange == 0:
+						continue
 					pos = (int((offset / axrange) * 127))
 					if axis == 'y':
 						pos *= -1
@@ -145,4 +154,7 @@ class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
 							self.res.sticks[stick].y_axis.set_value(pos)
 							dirty = True
 			if dirty:
+				#rawvals = bytes(payload[13:25])
+				#vals = struct.unpack("<hhhhhh", rawvals)
+				#print(" ".join([ "{:6d}".format(x) for x in vals ]))
 				self.set_dirty()

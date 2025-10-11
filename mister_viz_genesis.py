@@ -27,32 +27,33 @@ class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
 	def event_handler(self, widget, event):
 		self.last_event = event
 		dirty = False
-		if len(event) != 2:
+		payload = event.payload
+		if len(payload) != 2:
 			return
 		state = set()
-		if event[0] & 0x01:
+		if payload[0] & 0x01:
 			state.add("up")
-		if event[0] & 0x02:
+		if payload[0] & 0x02:
 			state.add("down")
-		if event[0] & 0x04:
+		if payload[0] & 0x04:
 			state.add("left")
-		if event[0] & 0x08:
+		if payload[0] & 0x08:
 			state.add("right")
-		if event[0] & 0x10:
+		if payload[0] & 0x10:
 			state.add("a")
-		if event[0] & 0x20:
+		if payload[0] & 0x20:
 			state.add("b")
-		if event[0] & 0x40:
+		if payload[0] & 0x40:
 			state.add("c")
-		if event[0] & 0x80:
+		if payload[0] & 0x80:
 			state.add("start")
-		if event[1] & 0x01:
+		if payload[1] & 0x01:
 			state.add("x")
-		if event[1] & 0x02:
+		if payload[1] & 0x02:
 			state.add("y")
-		if event[1] & 0x04:
+		if payload[1] & 0x04:
 			state.add("z")
-		if event[1] & 0x08:
+		if payload[1] & 0x08:
 			state.add("mode")
 
 

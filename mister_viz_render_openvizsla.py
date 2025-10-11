@@ -8,6 +8,7 @@ from gi.repository import GLib, GObject
 from fake_events import InputEvent as evdev_InputEvent
 from fake_events import categorize as evdev_categorize
 import fake_ecodes as ecodes
+import decimal
 
 
 class LogReader(GObject.GObject):
@@ -61,6 +62,8 @@ if __name__ == '__main__':
 	parser.add_argument("-w", "--width", dest="width", type=int, default=None, help="Specify scale width")
 	parser.add_argument("-r", "--framerate", dest="framerate", default=None, type=float, help="frame rate")
 	parser.add_argument("-y", "--yaml", dest="yaml_file", default=None, help="Explicitly force this YAML file to be used")
+	parser.add_argument("--fudgefactor", dest="fudgefactor", default=None, type=str, help="Specify decimal.Decimal fudge factor to alter timestamps by")
+	parser.add_argument("-f", "--force-state", action="append", dest="force_states", default=[], help="Force this state to the specified value when rendering. Can be specified multiple times. Format: type:name:value")
 	parser.add_argument("--get-dims", action="store_true", dest="get_dims", default=False, help="Run me to get final output dimensions")
 	parser.add_argument("--pretend", action="store_true", dest="pretend", default=False, help="do everything except output frame data")
 	parser.add_argument("--parse-events", action="store_true", dest="parse_events", default=False, help="instead of outputting frames, just output the event that each log entry describes")
@@ -81,12 +84,19 @@ if __name__ == '__main__':
 		dummy_context = cairo.Context(dummy_surface)
 		fw.set_context(dummy_context)
 		timestamp_dims = [ int(x) for x in fw.get_dims(format_timestamp(now_tzaware(), omit_tz=True, precision=3)) ]
-		
+	
+	if args.fudgefactor:
+		decimal.getcontext().prec = 128
+		fudgefactor = decimal.Decimal(args.fudgefactor)
+	else:
+		fudgefactor = None
 
 	res = None
 	res = SvgControllerResources(os.path.join(mister_viz.get_yaml_basedir(), module.svg_filename))
 
 	translator = module.Translator(res)
+
+	force_states = []
 
 	if res is not None:
 		res.connected = True
@@ -99,6 +109,17 @@ if __name__ == '__main__':
 			else:
 				print(f"{renderer.width}x{renderer.height}")
 			sys.exit(0)
+
+		for state_spec in args.force_states:
+			frags = state_spec.split(":")
+			swtype = frags[0]
+			swname = frags[1]
+			swval  = int(frags[2])
+			if swtype == 'axis':
+				control = res.axes[swname]
+			elif swtype == 'button':
+				control = res.buttons[swname]
+			force_states.append([control, swval])
 		
 	log_fh = open(args.log_file, "r")
 	# ts_start gets set to the timestamp of the first event in the log
@@ -122,22 +143,37 @@ if __name__ == '__main__':
 		procargs_lhs.append(sys.argv[0])
 		procargs_lhs.append(args.module_name)
 		procargs_lhs.append(args.log_file)
+		output_file = os.path.basename(args.log_file)
+		output_file = os.path.splitext(output_file)[0]
+		if args.fudgefactor:
+			output_file = f"{output_file}__fudged"
+		output_file = f"{output_file}.mkv"
 		procargs_lhs.extend(['-r', f"{args.framerate}"])
 		if args.timestamps:
 			procargs_lhs.append("--timestamps")
 		if args.width:
 			procargs_lhs.extend([f"-w", f"{args.width}"])
+		if args.fudgefactor:
+			procargs_lhs.extend(['--fudgefactor', f"{args.fudgefactor}"])
 		procargs_rhs = []
-		procargs_rhs.extend(['ffmpeg', '-f', 'rawvideo', '-pix_fmt', 'bgra'])
+		procargs_rhs.extend(['ffmpeg', '-y', '-f', 'rawvideo', '-pix_fmt', 'bgra'])
 		if args.timestamps:
 			procargs_rhs.extend(['-video_size', f"{renderer.width}x{renderer.height + timestamp_dims[1] + 5}"])
 		else:
 			procargs_rhs.extend(['-video_size', f"{renderer.width}x{renderer.height}"])
+		for state_spec in args.force_states:
+			procargs_lhs.extend(['-f', state_spec])
 		procargs_rhs.extend(['-framerate', f"{args.framerate}"])
-		procargs_rhs.extend(['-i', '-', '-c:v', 'png', '-f', 'matroska', 'mister_viz.mkv'])
+		procargs_rhs.extend(['-i', '-', '-c:v', 'png', '-f', 'matroska', output_file])
 		print(f"{shlex.join(procargs_lhs)} | {shlex.join(procargs_rhs)}")
 		sys.exit(0)
 
+	global lc
+	lc = 0
+	def line_counter(*stuff):
+		global lc
+		lc += 1
+		print(lc, sys.stderr)
 
 	loop = GLib.MainLoop()
 
@@ -146,6 +182,7 @@ if __name__ == '__main__':
 	parser = OpenVizslaParser()
 	translator = module.Translator(res)
 	reader.connect("line", parser.line_handler)
+	#reader.connect("line", line_counter)
 
 	def reader_finished_handler(widget):
 		loop.quit()
@@ -158,13 +195,18 @@ if __name__ == '__main__':
 	# during that frame.
 	framechanges = {}
 	def dirty_handler(widget):
-		ts = reader.last_timestamp - reader.first_timestamp
+		#ts = reader.last_timestamp - reader.first_timestamp
+		ts = widget.last_event.timestamp
+		if fudgefactor is not None:
+			ts = float(decimal.Decimal(ts) * fudgefactor)
 		frameno = get_frameno(0.0, args.framerate, ts)
 		if frameno not in framechanges:
 			framechanges[frameno] = []
+		for control, val in force_states:
+			control.set_value(val)
 		framechanges[frameno].append(res.dump_state())
 		#print(widget.last_event.timestamp, file=sys.stderr)
-		sys.stderr.write(f"{widget.last_event.timestamp}\r")
+		sys.stderr.write(f"{widget.last_event.timestamp!r}\r")
 		sys.stderr.flush()
 		widget.reset_dirty()
 

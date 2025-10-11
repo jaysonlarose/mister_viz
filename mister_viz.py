@@ -6,7 +6,7 @@ import gi
 import random
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib, Gdk, GdkPixbuf, GObject
-import cairosvg, cairo, io, PIL.Image, struct, yaml, lxml.etree, copy, math, socket, subprocess, atexit, multiprocessing, queue, time, traceback, psutil, datetime, random, base64, math, numpy
+import cairosvg, cairo, io, PIL.Image, struct, yaml, lxml.etree, copy, math, socket, subprocess, atexit, multiprocessing, queue, time, traceback, psutil, datetime, random, base64, math, numpy, re
 
 gi.require_version("PangoCairo", "1.0")
 from gi.repository import PangoCairo, Pango
@@ -14,6 +14,72 @@ from gi.repository import PangoCairo, Pango
 if sys.platform == "linux":
 	random.seed(open("/dev/random", "rb").read(64))
 
+pat_svg_rotfunc = re.compile(r"rotate\(.*?\)")
+pat_svg_rotfunc_inner = re.compile(r"rotate\((.*?)\)")
+
+def find_angle(ax, ay, cx, cy, bx, by):
+	"""
+	Given coordinates for endpoint A, center point C, and endpoint B,
+	returns the angle made by the two lines in radians.
+	"""
+	return math.atan2(ay - cy, ax - cx) - math.atan2(by - cy, bx - cx)
+
+def make_arrow_points(length, width):
+	# Arrowhead's width is 3x the arrow width.
+	#print(f"length: {length}")
+	#print(f"width: {width}")
+	arrowhead_width = width * 3
+	#print(f"arrowhead_width: {arrowhead_width}")
+
+	# Arrowhead's length is (arrowhead_width) / .75 in length
+	arrowhead_length = arrowhead_width / .75
+	#print(f"arrowhead_length: {arrowhead_length}")
+
+	# If arrow length is shorter than the arrowhead length, we're just drawing the arrowhead.
+	if length <= arrowhead_length:
+		#print(f"Just drawing head")
+		arrowhead_length = length
+		arrowhead_halfangle = find_angle(0, 0, 0, -4, 1.5, 0)
+		arrowhead_halfwidth = arrowhead_length * math.tan(arrowhead_halfangle)
+		return [
+			[-arrowhead_halfwidth, (length / 2)],
+			[0, -(length / 2)],
+			[arrowhead_halfwidth, (length / 2)],
+		]
+	#print("Drawing the full thing")
+	return [
+		[-(width / 2), (length / 2)],
+		[-(width / 2), -((length / 2) - arrowhead_length)],
+		[-(arrowhead_width / 2), -((length / 2) - arrowhead_length)],
+		[0, -(length / 2)],
+		[arrowhead_width / 2, -((length / 2) - arrowhead_length)],
+		[width / 2, -((length / 2) - arrowhead_length)],
+		[width / 2, length / 2],
+	]
+
+def rotpoint(x, y, cx, cy, angle):
+	s = math.sin(math.radians(angle))
+	c = math.cos(math.radians(angle))
+
+	# translate to origin
+	x -= cx
+	y -= cy
+
+	# rotate point
+	tx = x * c - y * s
+	ty = x * s + y * c
+
+	# translate back
+	newx = tx + cx
+	newy = ty + cy
+
+	return [newx, newy]
+
+def rotpoly(poly, cx, cy, angle):
+	return [ rotpoint(x, y, cx, cy, angle) for x, y in poly ]
+
+def transpoly(poly, tx, ty):
+	return [ [x + tx, y + ty] for x, y in poly ]
 
 def xmlwalk(tree):
 	yield tree
@@ -576,6 +642,27 @@ class Stick(Control):# {{{
 			self.y_axis.reset()
 		self.emit("reset")
 # }}}
+class Relative(Control):
+	def __init__(self, x_axis=None, y_axis=None):
+		self.x_axis = x_axis
+		self.y_axis = y_axis
+		self.center = None
+		self.radius = None
+		self.rgba = None
+		super().__init__(reset=False)
+		if self.x_axis is not None:
+			self.x_axis.connect("value-changed", self.value_change_propagator)
+		if self.y_axis is not None:
+			self.y_axis.connect("value-changed", self.value_change_propagator)
+	def value_change_propagator(self, *args):
+		self.emit("value-changed")
+	def reset(self):
+		if self.x_axis is not None:
+			self.x_axis.reset()
+		if self.y_axis is not None:
+			self.y_axis.reset()
+		self.is_dirty = False
+		self.emit("reset")
 class Button(Control):# {{{
 	def __init__(self, element):
 		super().__init__(reset=False)
@@ -606,6 +693,9 @@ class Button(Control):# {{{
 	def all_states(self):
 		return set([f"button:{self.element}"])
 # }}}
+class Knob(Control):
+	def __init__(self):
+		super().__init__(reset=False)
 class Axis(Control):# {{{
 	def __init__(self, spec):
 		super().__init__(reset=False)
@@ -615,15 +705,20 @@ class Axis(Control):# {{{
 		self.states = set()
 		self.rangemap = []
 		self.is_stick = False
+		self.is_relative = False
 		self.is_binary = False
 		self.is_analog = False
+		self.is_knob   = False
 		self.stickname = None
+
 		self.min_value = None
 		self.max_value = None
-		self.default_value = 0
+		#self.default_value = 0
+		self.default_value = None
 		self.min_pos = None
 		self.max_pos = None
 		self.svg_res = None
+		self.reset_source = None
 		# Presence of an 'svg_res' attribute means this is an axis for a MisterVizResourceMap
 		if 'svg_res' in self.spec:
 			self.svg_res = self.spec['svg_res']
@@ -641,6 +736,16 @@ class Axis(Control):# {{{
 			self.max_value = self.spec['analog']['max_value']
 			self.segments = self.svg_res.axes[self.mapped_to].segments
 			self.parent_control = self.svg_res.axes[self.mapped_to]
+		# Presence of a 'knob' attribute means this is a knob for a MisterVizResourceMap
+		if 'knob' in self.spec:
+			self.is_knob = True
+			# this attribute should have 'mapped_to', 'min_value', and 'max_value' subattributes.
+			self.mapped_to = self.spec['knob']['mapped_to']
+			self.min_value = self.spec['knob']['min_value']
+			self.max_value = self.spec['knob']['max_value']
+			self.segments = self.svg_res.knobs[self.mapped_to].segments
+			self.parent_control = self.svg_res.knobs[self.mapped_to]
+
 		# Presence of a 'stick' attribute means this is an axis for a MisterVizResourceMap
 		if 'stick' in self.spec:
 			for k, v in self.spec['stick'].items():
@@ -662,6 +767,27 @@ class Axis(Control):# {{{
 							print(f"Setting stick {self.stickname} axis {self.stickaxis} attr {k} to {v[k]}", file=sys.stderr)
 							setattr(self, k, v[k])
 			self.is_stick = True
+		# HERE
+		if 'relative' in self.spec:
+			for k, v in self.spec['relative'].items():
+				self.relativename = k
+				for k, v in v.items():
+					self.relativeaxis = k
+					if self.svg_res is not None:
+						svgres_key = f"{self.relativename}:{self.relativeaxis}"
+						if svgres_key in self.svg_res.axes:
+							svgres_axis = self.svg_res.axes[svgres_key]
+							self.parent_control = svgres_axis
+							for attrname in ['min_value', 'max_value']:
+								attrval = getattr(svgres_axis, attrname)
+								if attrval is not None:
+									print(f"Setting relative {self.relativename} axis {self.relativeaxis} attr {attrname} to {attrval} (inherited from svg_res)", file=sys.stderr)
+									setattr(self, attrname, attrval)
+					for k in ['min_value', 'max_value']:
+						if k in v:
+							print(f"Setting relative {self.relativename} axis {self.relativeaxis} attr {k} to {v[k]}", file=sys.stderr)
+							setattr(self, k, v[k])
+			self.is_relative = True
 		# Presence of a 'segments' attribute means this is an axis for a SvgControllerResources
 		if 'segments' in self.spec:
 			self.is_analog = True
@@ -682,7 +808,7 @@ class Axis(Control):# {{{
 	#	self.value = value
 	def set_value(self, value, emit=True):
 		super().set_value(value, emit=emit)
-		if self.is_binary:
+		if value is not None and self.is_binary:
 			for fromval, toval, elem in self.rangemap:
 				elem_type, elem_name = elem.split(":", 1)
 				if elem_type == "button":
@@ -702,6 +828,9 @@ class Axis(Control):# {{{
 		if self.is_analog:
 			segment_num = translate_constrainedint(self.value, self.min_value, self.max_value, 0, self.segments - 1)
 			ret.add(f"axis:{self.mapped_to}:{segment_num}")
+		if self.is_knob:
+			segment_num = translate_constrainedint(self.value, self.min_value, self.max_value, 0, self.segments - 1)
+			ret.add(f"knob:{self.mapped_to}:{segment_num}")
 		return ret
 	def all_states(self):
 		ret = set()
@@ -754,6 +883,19 @@ class CounterInterface:
 		except ValueError:
 			pass
 
+class HighlightInterface:
+	def __init__(self, bus, path):
+		self.dbus = bus
+		self.path = path
+	def increment(self):
+		call_dbus_method(self.dbus, "org.interlaced.websocket_highlight", self.path, "org.interlaced.WebsocketHighlight", "mod", 1)
+	def decrement(self):
+		call_dbus_method(self.dbus, "org.interlaced.websocket_highlight", self.path, "org.interlaced.WebsocketHighlight", "mod", -1)
+	def increment_major(self):
+		call_dbus_method(self.dbus, "org.interlaced.websocket_highlight", self.path, "org.interlaced.WebsocketHighlight", "mod_major", 1)
+	def decrement_major(self):
+		call_dbus_method(self.dbus, "org.interlaced.websocket_highlight", self.path, "org.interlaced.WebsocketHighlight", "mod_major", -1)
+
 def svg_to_pixbuf(svg_bytes, scale_factor):# {{{
 	fobj = io.BytesIO(cairosvg.svg2png(svg_bytes, scale=scale_factor))
 	pil_img = PIL.Image.open(fobj)
@@ -778,6 +920,31 @@ def modify_gradient(tree, axis_name, fract):# {{{
 	for stop_elem in gradientdef[1:3]:
 		stop_elem.attrib['offset'] = f"{fract}"
 # }}}
+
+def modify_rotate(tree, knob_name, offset):# {{{
+	knob_groups = [ x for x in xmlwalk(tree) if 'data-type' in x.attrib and 'data-state' in x.attrib and x.attrib['data-type'] == 'knob' and x.attrib['data-state'] == knob_name ]
+	knob_group = knob_groups[0]
+	knob_subgroups = [ x for x in walk(knob_group) if x.tag == SVG_PREFIX + 'g' ]
+	knob_subgroup = knob_subgroups[0]
+
+	# parse the group's "transform" attribute,
+	# pull out the "rotate()" function and parse its parameters
+	transform_attrib = knob_subgroup.attrib['transform']
+	mat_rotate = pat_svg_rotfunc.search(transform_attrib)
+	mat_rotate_inner = pat_svg_rotfunc_inner.search(mat_rotate.group(0))
+	rotate_parms = [ float(x) for x in mat_rotate_inner.group(1).replace(",", " ").split() ]
+
+	new_angle = rotate_parms[0] + offset
+	while new_angle < 0:
+		new_angle += 360
+	while new_angle > 360:
+		new_angle -= 360
+	
+	new_rotate = f"rotate({new_angle} {rotate_parms[1]} {rotate_parms[2]})"
+	new_transform_attrib = transform_attrib.replace(mat_rotate.group(0), new_rotate)
+
+	knob_subgroup.attrib['transform'] = new_transform_attrib
+# }}}
 def svg_state_split(svg_bytes, debug=False):# {{{
 	ret = {}
 	tree = lxml.etree.fromstring(svg_bytes)
@@ -793,7 +960,7 @@ def svg_state_split(svg_bytes, debug=False):# {{{
 				set_xmlsubattrib(elem, 'style', 'display', 'none')
 	states.append(None)
 	for state in states:
-		print(f"state: {state}", file=sys.stderr)
+		#print(f"state: {state}", file=sys.stderr)
 		chip = copy.deepcopy(tree)
 		mangle(chip, state, debug=debug)
 		devastate(chip, debug=debug)
@@ -813,6 +980,25 @@ def svg_state_split(svg_bytes, debug=False):# {{{
 						modify_gradient(crumb, ds, fract)
 						ret[key] = lxml.etree.tostring(crumb)
 				handled = True
+			if dt == "knob":
+				knob_groups = [ x for x in xmlwalk(tree) if 'data-type' in x.attrib and 'data-state' in x.attrib and x.attrib['data-type'] == 'knob' and x.attrib['data-state'] == ds ]
+				print(f"knob_groups: {knob_groups}", file=sys.stderr)
+				knob_group = knob_groups[0]
+
+				# parse "data-resolution" and "data-extents" attributes
+				# to build a list of angle offsets
+				knob_resolution_parm = int(knob_group.attrib['data-resolution'])
+				knob_extents_parm = [ int(x) for x in knob_group.attrib['data-extents'].split() ]
+				knob_extent_offsets = [ int(x) for x in range(knob_extents_parm[0], knob_extents_parm[1]+1, knob_resolution_parm) ]
+
+				for idx, offset in enumerate(knob_extent_offsets):
+					crumb = copy.deepcopy(chip)
+					key = f"{dt}:{ds}:{idx}"
+					modify_rotate(crumb, ds, offset)
+					ret[key] = lxml.etree.tostring(crumb)
+
+				handled = True
+				
 		if not handled:
 			ret[state] = lxml.etree.tostring(chip)
 	return ret
@@ -829,6 +1015,8 @@ class SvgControllerResources:# {{{
 		self.buttons = {}
 		self.axes = {}
 		self.sticks = {}
+		self.relatives = {}
+		self.knobs = {}
 		self.vid = 0xffff
 		self.pid = 0xffff
 		self.has_rumble = False
@@ -890,6 +1078,51 @@ class SvgControllerResources:# {{{
 				stick_obj.x_axis = self.axes[f"{state_value}:x"]
 				stick_obj.y_axis = self.axes[f"{state_value}:y"]
 				self.sticks[state_value] = stick_obj
+			elif type_value == 'knob':
+				if 'data-extents' not in elem.attrib:
+					raise RuntimeError(f"SVG ERROR ({svg_filename}): group ({elem.attrib}) with data-type 'knob' has no data-extents!")
+				if 'data-resolution' not in elem.attrib:
+					raise RuntimeError(f"SVG ERROR ({svg_filename}): group ({elem.attrib}) with data-type 'knob' has no data-resolution!")
+				resolution = int(elem.attrib['data-resolution'])
+				extents = [ int(x) for x in elem.attrib['data-extents'].split() ]
+				segments = len([ int(x) for x in range(extents[0], extents[1]+1, resolution) ])
+				knob_obj = Knob()
+				knob_obj.segments = segments
+				self.knobs[state_value] = knob_obj
+			elif type_value == 'relative':
+				if 'data-center-x' not in elem.attrib:
+					raise RuntimeError(f"SVG ERROR ({svg_filename}): group ({elem.attrib}) with data-type 'relative' has no data-center-x!")
+				if 'data-center-y' not in elem.attrib:
+					raise RuntimeError(f"SVG ERROR ({svg_filename}): group ({elem.attrib}) with data-type 'relative' has no data-center-y!")
+				if 'data-radius' not in elem.attrib:
+					raise RuntimeError(f"SVG ERROR ({svg_filename}): group ({elem.attrib}) with data-type 'relative' has no data-radius!")
+				if 'data-rgba' not in elem.attrib:
+					raise RuntimeError(f"SVG ERROR ({svg_filename}): group ({elem.attrib}) with data-type 'relative' has no data-rgba!")
+				center = [ float(elem.attrib['data-center-x']), float(elem.attrib['data-center-y']) ]
+				radius = float(elem.attrib['data-radius'])
+				rgba = [ float(x) for x in elem.attrib['data-rgba'].split() ]
+				axis_spec = {
+					'relative': {
+						state_value: {
+							'x': {}
+						},
+					},
+				}
+				self.axes[f"{state_value}:x"] = Axis(axis_spec)
+				axis_spec = {
+					'relative': {
+						state_value: {
+							'y': {}
+						},
+					},
+				}
+				self.axes[f"{state_value}:y"] = Axis(axis_spec)
+
+				relative_obj = Relative(x_axis=self.axes[f"{state_value}:x"], y_axis=self.axes[f"{state_value}:y"])
+				relative_obj.center = center
+				relative_obj.radius = radius
+				relative_obj.rgba   = rgba
+				self.relatives[state_value] = relative_obj
 		for k, v in self.sticks.items():
 			if k in self.buttons:
 				v.button = self.buttons[k]
@@ -947,7 +1180,7 @@ class SvgControllerResources:# {{{
 # }}}
 class MisterVizResourceMap:# {{{
 	"""
-	This reads in a YAML file and uses it to Linux input subsystem events
+	This reads in a YAML file and uses it to map Linux input subsystem events
 	onto SvgControllerResources.
 	"""
 	def __init__(self, yaml_filename):# {{{
@@ -967,6 +1200,7 @@ class MisterVizResourceMap:# {{{
 		#self.buttons = self.svg_res.buttons
 		#self.axes    = self.svg_res.axes
 		self.sticks  = self.svg_res.sticks
+		self.relatives = self.svg_res.relatives
 		self.vid = c['vid']
 		self.pid = c['pid']
 		self.buttons = {}
@@ -986,6 +1220,11 @@ class MisterVizResourceMap:# {{{
 					self.sticks[axis.stickname].x_axis = axis
 				elif axis.stickaxis == 'y':
 					self.sticks[axis.stickname].y_axis = axis
+			if axis.is_relative:
+				if axis.relativeaxis == 'x':
+					self.relatives[axis.relativename].x_axis = axis
+				elif axis.relativeaxis == 'y':
+					self.relatives[axis.relativename].y_axis = axis
 		all_buttons = set()
 		for x in self.buttons.values():
 			all_buttons |= x.all_states()
@@ -1382,17 +1621,29 @@ class MisterVizStub:# {{{
 	# }}}
 # }}}
 
+class KeynoteLogger:
+	def __init__(self, log_file=None):
+		self.log_file = log_file
+		self.log_fh = None
+	def trigger(self):
+		if self.log_file is not None:
+			if self.log_fh is None:
+				self.log_fh = open(self.log_file, "a")
+			print(f"{time.time()}", file=self.log_fh)
+			self.log_fh.flush()
+
 class MisterViz:# {{{
 	"""
 	This is the primary piece of code for mister_viz.
 	"""
-	def __init__(self, hostname, do_window=True, do_viz=True, debug=False, log_file=None, ptt_states=[], width=None, use_clutter=True):# {{{
+	def __init__(self, hostname, do_window=True, do_viz=True, debug=False, log_file=None, keynotes_log_file=None, ptt_states=[], width=None, use_clutter=True, print_events=False):# {{{
 		self.hostname = hostname
 		self.do_window = do_window
 		self.do_viz = do_viz
 		self.sock = None
 		self.debug = debug
 		self.log_file = log_file
+		self.keynote_logger = KeynoteLogger(keynotes_log_file)
 		self.log_fh = None
 		self.width = width
 		self.connection_status = "disconnected"
@@ -1400,6 +1651,7 @@ class MisterViz:# {{{
 		self.socket_handle = None
 		self.in_shutdown = False
 		self.use_clutter = use_clutter
+		self.print_events = print_events
 		if self.hostname is not None:
 			self.connect_handle = GLib.idle_add(self.connect_handler)
 		self.window = None
@@ -1720,6 +1972,7 @@ class MisterViz:# {{{
 				self.sock.connect((self.hostname, 22101))
 			except BlockingIOError:
 				self.socket_handle = GLib.io_add_watch(self.sock, GLib.IO_OUT, self.connect_finish_handler)
+				print(f"connect_handler setting socket_handle to {self.socket_handle}")
 				self.keepalive_handle = GLib.timeout_add(SOCKET_CONNECT_TIMEOUT, self.connect_timeout_handler)
 		except OSError:
 			print("Connection failed!")
@@ -1746,6 +1999,7 @@ class MisterViz:# {{{
 			self.connect_button.set_label("Disconnect")
 		self.connection_status = "connected"
 		self.socket_handle = GLib.io_add_watch(self.sock, GLib.IO_IN | GLib.IO_HUP, self.socket_handler)
+		print(f"connect_finish_handler setting socket_handle to {self.socket_handle}")
 		if self.keepalive_handle is not None:
 			GLib.source_remove(self.keepalive_handle)
 			self.keepalive_handle = None
@@ -1800,7 +2054,7 @@ class MisterViz:# {{{
 					elif opcode_pkt[0] == OP_INPUT:
 						data = self.sock.recv(MISTER_STRUCT_SIZE)
 					else:
-						print(f"Unknown opcode {opcode}")
+						print(f"Unknown opcode {opcode_pkt}")
 						data = b''
 				except (ConnectionResetError, OSError):
 					data = b''
@@ -1816,7 +2070,11 @@ class MisterViz:# {{{
 						self.connect_handle = None
 					self.connect_handle = GLib.timeout_add(100, self.connect_handler)
 					return False
-				vals = struct.unpack(MISTER_STRUCT, data)
+				try:
+					vals = struct.unpack(MISTER_STRUCT, data)
+				except struct.error:
+					print(f"Got incorrect-size data packet! Length {len(data)}, {data}")
+					raise
 				inputno = vals[0]
 				player_id = vals[1]
 				vid = vals[2]
@@ -1833,7 +2091,7 @@ class MisterViz:# {{{
 				if hasattr(event, 'event'):
 					event = event.event
 				# TODO Change this back to true
-				print_event = False
+				print_event = self.print_events
 				if ecodes.EV[event.type] == 'EV_SYN':
 					print_event = False
 				elif ecodes.EV[event.type] == 'EV_MSC':
@@ -1920,7 +2178,7 @@ class MisterViz:# {{{
 
 										def ptt_handler(widget):
 											#print(f"ptt_handler ({control.value})")
-											if control.value >= ptt_minval and control.value <= ptt_maxval:
+											if control.value is not None and control.value >= ptt_minval and control.value <= ptt_maxval:
 												self.ptt.set_value(True)
 											else:
 												self.ptt.set_value(False)
@@ -1932,18 +2190,24 @@ class MisterViz:# {{{
 								widget.reset_dirty()
 							handler.connect("dirty", dirty_handler)
 
-							if res.name == '8Bitdo Pro 2':
+							if res.name in ['8Bitdo Pro 2', '8Bitdo Pro 3']:
 								import jlib, functools
 								incdec_state = jlib.proppadict()
 								incdec_state.lastval = ''
-								enable_controls = [handler.res.svg_res.buttons['lpaddle'], handler.res.svg_res.buttons['l']]
+								#enable_controls = [handler.res.svg_res.buttons['lpaddle'], handler.res.svg_res.buttons['l']]
+								incdec_enable_controls = [lambda: handler.res.svg_res.buttons['rpaddle'].value == 1, lambda: handler.res.svg_res.axes['l2'].value > 64]
 								inc_control    = handler.res.svg_res.buttons['up']
 								dec_control    = handler.res.svg_res.buttons['down']
+								hldec_lambda  = lambda: handler.res.svg_res.axes['rstick:y'].value < 32
+								hlinc_lambda  = lambda: handler.res.svg_res.axes['rstick:y'].value > 223
+								hldec_major_lambda  = lambda: handler.res.svg_res.axes['rstick:x'].value < 32
+								hlinc_major_lambda  = lambda: handler.res.svg_res.axes['rstick:x'].value > 223
 								counter = CounterInterface(self.dbus, '/death_count')
+								highlight = HighlightInterface(self.dbus, '/org/interlaced/WebsocketHighlight')
 								def incdec_handler(widget):
-
-									if functools.reduce(lambda x, y: x.value & y.value, enable_controls) == 1:
-										print(f"enabled {inc_control.value} {dec_control.value}")
+									#print(f"incdec_handler ({incdec_state.lastval})")
+									if functools.reduce(lambda x, y: x() & y(), incdec_enable_controls) == 1:
+										#print(f"enabled {inc_control.value} {dec_control.value}")
 										if inc_control.value == 1 and incdec_state.lastval != '+':
 											print("increment")
 											incdec_state.lastval = '+'
@@ -1952,9 +2216,38 @@ class MisterViz:# {{{
 											print("decrement")
 											incdec_state.lastval = '-'
 											counter.decrement()
+										elif hlinc_lambda():
+											if incdec_state.lastval != 'hl+':
+												print("highlight increment")
+												highlight.increment()
+											incdec_state.lastval = "hl+"
+										elif hldec_lambda():
+											if incdec_state.lastval != 'hl-':
+												print("highlight decrement")
+												highlight.decrement()
+											incdec_state.lastval = "hl-"
+										elif hlinc_major_lambda():
+											if incdec_state.lastval != 'hl>':
+												print("highlight increment_major")
+												highlight.increment_major()
+											incdec_state.lastval = "hl>"
+										elif hldec_major_lambda():
+											if incdec_state.lastval != 'hl<':
+												print("highlight decrement_major")
+												highlight.decrement_major()
+											incdec_state.lastval = "hl<"
 										else:
 											incdec_state.lastval = ''
 								handler.connect("dirty", incdec_handler)
+
+								keynote_enable_controls = [lambda: handler.res.svg_res.buttons['lpaddle'].value == 1, lambda: handler.res.svg_res.buttons['rpaddle'].value == 1]
+								def keynote_handler(widget):
+									if functools.reduce(lambda x, y: x() & y(), keynote_enable_controls) == 1:
+										self.keynote_logger.trigger()
+										print(f"Triggering keynote")
+								handler.connect("dirty", keynote_handler)
+
+
 									
 
 
@@ -2135,6 +2428,10 @@ class MisterVizRenderer:# {{{
 				ev_code = ecodes.ABS[event.code]
 				if ev_code in self.res.axes:
 					self.res.axes[ev_code].set_value(event.value)
+			elif ev_type == 'EV_REL':
+				ev_code = ecodes.REL[event.code]
+				if ev_code in self.res.axes:
+					self.res.axes[ev_code].set_value(event.value)
 			elif ev_type == 'EV_FF':
 				self.res.rumbling = True
 				if hasattr(self.res, "rumble_handler"):
@@ -2272,6 +2569,22 @@ class MisterVizEventHandler(GObject.GObject):# {{{
 				ev_code = ecodes.ABS[event.code]
 				if ev_code in self.res.axes:
 					self.res.axes[ev_code].set_value(event.value)
+			elif ev_type == 'EV_REL':
+				ev_code = ecodes.REL[event.code]
+				if ev_code in self.res.axes:
+					axis = self.res.axes[ev_code]
+					axis.set_value(event.value)
+					if event.value != 0:
+						if axis.reset_source is not None:
+							GLib.source_remove(axis.reset_source)
+							axis.reset_source = None
+						def resetter():
+							#print("resetter running")
+							axis.set_value(0)
+							self.set_dirty()
+							axis.reset_source = None
+							return False
+						axis.reset_source = GLib.timeout_add(int(1000 / 30), resetter)
 			elif ev_type == 'EV_FF':
 				if hasattr(self.res, "rumble_handler"):
 					self.res.rumble_handler(event)
@@ -2356,20 +2669,20 @@ class MisterVizWindowStub(Gtk.Window):# {{{
 		print(f"darea_click_handler() {event.type}")
 		print(event.button)
 
-		print(f"resize_handler() called!")
+		#print(f"resize_handler() called!")
 		if self.resize_timer_id is not None:
 			GLib.source_remove(self.resize_timer_id)
 			self.resize_timer_id = None
 
 		curr_window_dims = (self.get_allocated_width(), self.get_allocated_height())
-		print(f"curr_window_dims: {curr_window_dims}")
+		#print(f"curr_window_dims: {curr_window_dims}")
 		geom = self.get_window().get_geometry()
 		curr_window_geom = (geom.width, geom.height)
-		print(f"curr_window_goem: {curr_window_geom}")
+		#print(f"curr_window_goem: {curr_window_geom}")
 		curr_darea_dims  = (self.main_widget.get_allocated_width(), self.main_widget.get_allocated_height())
-		print(f"curr_darea_dims: {curr_darea_dims}")
+		#print(f"curr_darea_dims: {curr_darea_dims}")
 		dim_discrepancy = [ x[0] - x[1] for x in zip(curr_window_dims, curr_darea_dims) ]
-		print(f"dim_discrepancy: {dim_discrepancy}")
+		#print(f"dim_discrepancy: {dim_discrepancy}")
 		#self.resize_timer_id = GLib.timeout_add(1000, self.resize_finisher)
 		desired_dims = (int(self.viz_width * self.scalefactor), int(self.viz_height * self.scalefactor))
 
@@ -2415,14 +2728,14 @@ class MisterVizWindowStub(Gtk.Window):# {{{
 			self.resize_timer_id = None
 
 		curr_window_dims = (self.get_allocated_width(), self.get_allocated_height())
-		print(f"curr_window_dims: {curr_window_dims}")
+		#print(f"curr_window_dims: {curr_window_dims}")
 		geom = self.get_window().get_geometry()
 		curr_window_geom = (geom.width, geom.height)
-		print(f"curr_window_goem: {curr_window_geom}")
+		#print(f"curr_window_goem: {curr_window_geom}")
 		curr_darea_dims  = (self.main_widget.get_allocated_width(), self.main_widget.get_allocated_height())
-		print(f"curr_darea_dims: {curr_darea_dims}")
+		#print(f"curr_darea_dims: {curr_darea_dims}")
 		dim_discrepancy = [ x[0] - x[1] for x in zip(curr_window_dims, curr_darea_dims) ]
-		print(f"dim_discrepancy: {dim_discrepancy}")
+		#print(f"dim_discrepancy: {dim_discrepancy}")
 		#self.resize_timer_id = GLib.timeout_add(1000, self.resize_finisher)
 	
 	# }}}
@@ -2454,11 +2767,11 @@ class MisterVizWindowStub(Gtk.Window):# {{{
 		print(f"curr_window_dims: {curr_window_dims}")
 		geom = self.get_window().get_geometry()
 		curr_window_geom = (geom.width, geom.height)
-		print(f"curr_window_goem: {curr_window_geom}")
+		#print(f"curr_window_goem: {curr_window_geom}")
 		curr_darea_dims  = (self.main_widget.get_allocated_width(), self.main_widget.get_allocated_height())
-		print(f"curr_darea_dims: {curr_darea_dims}")
+		#print(f"curr_darea_dims: {curr_darea_dims}")
 		dim_discrepancy = [ x[0] - x[1] for x in zip(curr_window_dims, curr_darea_dims) ]
-		print(f"dim_discrepancy: {dim_discrepancy}")
+		#print(f"dim_discrepancy: {dim_discrepancy}")
 		desired_dims = (int(self.viz_width * self.scalefactor), int(self.viz_height * self.scalefactor))
 		self.resize(*desired_dims)
 		return False
@@ -2827,14 +3140,17 @@ if __name__ == '__main__':
 		parser.add_argument("-p", "--ptt", action="append", dest="ptt_states", default=[], help="Add this state to the list of push-to-talk buttons. Can be specified multiple times Format: vid:pid:type:name:minval:maxval or controllername:type:name:minval:maxval")
 		parser.add_argument("-w", "--width", action="store", dest="width", default=None, type=int)
 		parser.add_argument("--no-clutter", action="store_false", dest="use_clutter", default=True, help="Use cairo instead of clutter")
+		parser.add_argument("--print-events", action="store_true", dest="print_events", default=False, help="Print input events on STDOUT")
 		args = parser.parse_args()
 		if args.log_file == ':auto:':
 			nao = datetime.datetime.now()
 			naostr = nao.strftime("%F %T").replace(":", "_")
 			log_file = f"mister_viz__{naostr}.log"
+			keynotes_log_file = f"mister_viz_keynotes__{naostr}.log"
 		else:
 			log_file = args.log_file
-		app = MisterViz(args.hostname, debug=args.debug, do_window=args.do_window, do_viz=args.do_viz, log_file=log_file, ptt_states=args.ptt_states, width=args.width, use_clutter=args.use_clutter)
+			keynotes_log_file = None
+		app = MisterViz(args.hostname, debug=args.debug, do_window=args.do_window, do_viz=args.do_viz, log_file=log_file, keynotes_log_file=keynotes_log_file, ptt_states=args.ptt_states, width=args.width, use_clutter=args.use_clutter, print_events=args.print_events)
 	else:
 		app = MisterViz(None)
 

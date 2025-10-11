@@ -27,24 +27,25 @@ class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
 	def event_handler(self, widget, event):
 		self.last_event = event
 		dirty = False
-		if len(event) != 1:
+		payload = event.payload
+		if len(payload) != 1:
 			return
 		state = set()
-		if event[0] & 0x10:
+		if payload[0] & 0x10:
 			state.add("up")
-		if event[0] & 0x20:
+		if payload[0] & 0x20:
 			state.add("down")
-		if event[0] & 0x40:
+		if payload[0] & 0x40:
 			state.add("left")
-		if event[0] & 0x80:
+		if payload[0] & 0x80:
 			state.add("right")
-		if event[0] & 0x08:
+		if payload[0] & 0x08:
 			state.add("start")
-		if event[0] & 0x04:
+		if payload[0] & 0x04:
 			state.add("select")
-		if event[0] & 0x01:
+		if payload[0] & 0x01:
 			state.add("a")
-		if event[0] & 0x02:
+		if payload[0] & 0x02:
 			state.add("b")
 
 
@@ -77,7 +78,7 @@ if __name__ == '__main__':
 	if args.log_file == ':auto:':
 		nao = datetime.datetime.now()
 		naostr = nao.strftime("%F %T").replace(":", "_")
-		log_file = f"snes__{naostr}.log"
+		log_file = f"nes__{naostr}.log"
 	else:
 		log_file = args.log_file
 
@@ -104,6 +105,7 @@ if __name__ == '__main__':
 		reader.connect("line", dumper.line_handler)
 	
 	parser = mister_viz_gamecube.Parser()
+
 	parser.connect("event", translator.event_handler)
 	reader.connect("line", parser.line_handler)
 

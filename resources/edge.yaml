@@ -1,0 +1,66 @@
+name: JaysTech Edge Joystick
+vid: 0x1a61
+pid: 0x2044
+svg: edge.svg
+buttons:
+  BTN_C: start
+  BTN_SELECT: turbo_b_led
+  BTN_TL: b
+  BTN_TL2: turbo_b_switch
+  BTN_TR: turbo_a_switch
+  BTN_TR2: turbo_a_led
+  BTN_X: select
+  BTN_Y: slow
+  BTN_Z: a
+axes:
+  ABS_HAT0X:
+    stick:
+      stick:
+        x:
+          min_value: -1
+          max_value: 1
+          default_value: 0
+  ABS_HAT0Y:
+    stick:
+      stick:
+        y:
+          min_value: -1
+          max_value: 1
+          default_value: 0
+  ABS_Z:
+    knob:
+      mapped_to: turbo_a_knob
+      min_value: 0
+      max_value: 255
+      default_value: 0
+  ABS_RZ:
+    knob:
+      mapped_to: turbo_b_knob
+      min_value: 0
+      max_value: 255
+      default_value: 0
+#    # start of binary axis definition. delete me if you're defining a stick!
+#    binary:
+#      <svg_state>: [0, 0]
+#      <svg_state>: [255, 255]
+#    # end of binary axis definition.
+#    # start of stick axis definition. delete me if you're defining a binary axis!
+#    stick:
+#      <stick_name>:
+#        <x_or_y>:
+#          - [0, -30]
+#          - [255, 30]
+#    # end of stick axis definition.
+#  ABS_Z:
+#    # start of binary axis definition. delete me if you're defining a stick!
+#    binary:
+#      <svg_state>: [0, 0]
+#      <svg_state>: [255, 255]
+#    # end of binary axis definition.
+#    # start of stick axis definition. delete me if you're defining a binary axis!
+#    stick:
+#      <stick_name>:
+#        <x_or_y>:
+#          - [0, -30]
+#          - [255, 30]
+#    # end of stick axis definition.
