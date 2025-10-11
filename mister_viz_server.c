@@ -1,5 +1,5 @@
 // debug: gcc -g -DDEBUG -o mister_viz_server mister_viz_server.c `pkg-config --cflags --libs libudev`
-// gcc -Wall -O2 -s -o mister_viz_server mister_viz_server.c `pkg-config --cflags --libs libudev`
+// gcc -Wall -O2 -march=x86-64 -funroll-loops -s -o mister_viz_server mister_viz_server.c `pkg-config --cflags --libs libudev`
 
 /* mister_viz_server
  * A standalone implementation of the mister_viz protocol for Linux systems,
@@ -39,25 +39,50 @@
 #define FD_TYPE_CLIENTSOCKET 4
 
 typedef struct deviceinfo_t {
+	/* This struct is used as a companion array to the `pool` array in `state_t`.
+	 * It holds all of the other data that isn't used by the `poll()` call.
+	 */
+	// `name`: the printable "friendly name" of this file descriptor.
 	char *name;
+	// `type`: the type of this file descriptor.
 	uint8_t type;
+	// `vendor_id`: in file descriptors of type `FD_TYPE_INPUT`, contains the USB VendorID of the input device.
 	uint16_t vendor_id;
+	// `product_id`: in file descriptors of type `FD_TYPE_INPUT`, contains the USB ProductID of the input device.
 	uint16_t product_id;
 } deviceinfo_t;
 
 typedef struct state_t {
+	/* This struct holds nearly all of the program state, which largely consists of two arrays:
+	 *   `pool` of type `struct pollfd`, which gets fed into the `poll()` call that governs the main loop
+	 *   `info` of type `deviceinfo_t`, which holds all of the non-`poll()`-related data.
+	 * `len` defines how many elements are contained in the above two arrays.
+	 * `udev_context` and `udev_monitor` contain the udev stuff.
+	 * `clients` is an array containing the file descriptors of the network clients in `pool` and `info`,
+	 *   to make sending of event data more efficient.
+	 * `clients_len` is the length of the `clients` array.
+	 */
 	nfds_t len;
 	struct udev *udev_context;
 	struct udev_monitor *monitor;
 	struct pollfd *pool;
 	struct deviceinfo_t *info;
+	int *clients;
+	nfds_t clients_len;
 } state_t;
 
 state_t *state_create(void) {
+	/* Create a new `state_t` object.
+	 * Returns a pointer to the new object.
+	 */
 	state_t *ret = (state_t *) malloc(sizeof(state_t));
 	ret->len = 0;
 	ret->pool = NULL;
 	ret->info = NULL;
+	ret->udev_context = NULL;
+	ret->monitor = NULL;
+	ret->clients = NULL;
+	ret->clients_len = 0;
 	return ret;
 }
 
@@ -79,6 +104,9 @@ void state_destroy(state_t *state) {
 		}
 		free(state->info);
 	}
+	if (state->clients != NULL) {
+		free(state->clients);
+	}
 	free(state);
 }
 
@@ -95,36 +123,48 @@ nfds_t state_add(state_t *state) {
 	state->pool[idx].revents = 0;
 	state->info[idx].name = NULL;
 	state->info[idx].type = FD_TYPE_UNDEFINED;
-	//struct pollfd *ret = (&(state->pool))[state->len - 1];
-	//memset(ret, -1, sizeof(struct pollfd));
-	//deviceinfo_t *info = state->info[state->len - 1];
-	//info->name = NULL;
-	//memset(state->pool[state->len - 1], 0, sizeof(struct pollfd));
-
-	//struct pollfd *ret = state->pool[state->len - 1];
 	return idx;
 }
 
 void state_remove(state_t *state, nfds_t idx) {
-	/* Removes entry at index `idx` from the state struct. */
-	/* Items occurring past this entry will be moved to fill in the gap. */
+	/* Removes entry at index `idx` from the state struct.
+	 * The file descriptor associated with the entry will be closed.
+	 * Items occurring past this entry will be moved to fill in the gap.
+	 */
 	if (state->pool[idx].fd >= 0) {
-		//printf("closing fd %d\n", state->pool[idx].fd);
 		close(state->pool[idx].fd);
 	}
 	if (state->info[idx].name != NULL) {
 		free(state->info[idx].name);
 	}
 	for (nfds_t i = idx; i < (state->len - 1); i++) {
-		//printf("shuffling idx %ld to %ld\n", i+1, i);
 		memcpy(&(state->pool[i]), &(state->pool[i+1]), sizeof(struct pollfd));
 		memcpy(&(state->info[i]), &(state->info[i+1]), sizeof(deviceinfo_t));
 	}
 	state->len--;
-	//printf("Realloccing state to size %ld\n", sizeof(struct pollfd *) * state->len);
 	state->pool = (struct pollfd *) realloc(state->pool, sizeof(struct pollfd) * state->len);
-	//printf("Reallocing info to size %ld\n", sizeof(deviceinfo_t) * state->len);
 	state->info = (deviceinfo_t *) realloc(state->info, sizeof(deviceinfo_t) * state->len);
+}
+
+void state_add_client(state_t *state, int fd) {
+	/* Adds fd `fd` to the state struct's `clients` array. */
+	state->clients = (int *) realloc(state->clients, sizeof(int) * (state->clients_len + 1));
+	state->clients[state->clients_len] = fd;
+	state->clients_len++;
+}
+
+void state_remove_client(state_t *state, int fd) {
+	/* Removes file descriptor `fd` from the state struct's `clients` array. */
+	for (nfds_t i = 0; i < state->clients_len; i++) {
+		if (state->clients[i] == fd) {
+			for (nfds_t j = i; j < (state->clients_len - 1); j++) {
+				state->clients[j] = state->clients[j+1];
+			}
+			state->clients_len--;
+			state->clients = (int *) realloc(state->clients, sizeof(int) * state->clients_len);
+			i--; // careful, messing with i!
+		}
+	}
 }
 
 void state_print(state_t *state) {
@@ -138,7 +178,13 @@ void state_print(state_t *state) {
 	printf("\n");
 }
 
+/* network packet opcodes. */
+#define OP_INPUT 0
+#define OP_PING  1
+#define OP_PONG  2
+
 struct __attribute__((__packed__)) input_socket_packet {
+	/* This struct contains the data of an input event which gets sent over the line. */
 	uint8_t opcode;
 	uint8_t index;
 	uint8_t player_id;
@@ -151,9 +197,6 @@ struct __attribute__((__packed__)) input_socket_packet {
 	uint32_t tv_usec;
 };	
 
-#define OP_INPUT 0
-#define OP_PING  1
-#define OP_PONG  2
 
 void input_socket_send(state_t *state, uint16_t vid, uint16_t pid, struct input_event *ev) {
 	struct input_socket_packet packet;
@@ -168,16 +211,15 @@ void input_socket_send(state_t *state, uint16_t vid, uint16_t pid, struct input_
 	packet.tv_sec = ev->time.tv_sec;
 	packet.tv_usec = ev->time.tv_usec;
 
-	for (nfds_t i = 0; i < state->len; i++) {
-		if (state->info[i].type == FD_TYPE_CLIENTSOCKET) {
-			if (write(state->pool[i].fd, (char *) &packet, sizeof(packet)) != sizeof(packet)) {
-				printf("WARNING: input_socket_send failed to write all data!\n");
-			}
+	for (nfds_t i = 0; i < state->clients_len; i++) {
+		if (write(state->clients[i], (char *) &packet, sizeof(packet)) != sizeof(packet)) {
+			printf("WARNING: input_socket_send failed to write all data!\n");
 		}
 	}
 }
 
 void handle_udev_device(state_t *state, struct udev_device *udevice) {
+	/* Qualifies, opens, and adds a device returned by udev to the state array. */
 	const char *devnode = udev_device_get_devnode(udevice);
 
 	if (devnode != NULL) {
@@ -190,13 +232,15 @@ void handle_udev_device(state_t *state, struct udev_device *udevice) {
 
 		char *devnode_base = basename((char *) devnode);
 
+		/* We're only interested in the "event*" devices. */
 		if (strncmp(devnode_base, "event", 5) == 0) {
 			//printf("devnode_base: %s\n", devnode_base);
 			//printf("%p\n", devnode);
 			//printf("%p\n", devnode_base);
 			//printf("woo\n");
+			/* Open the device. */
 			int fd = open(devnode, O_RDWR | O_CLOEXEC);
-			if (fd > 0) {
+			if (fd >= 0) {
 				struct input_id dev_id;
 				memset(&dev_id, 0, sizeof(dev_id));
 				ioctl(fd, EVIOCGID, &dev_id);
@@ -235,6 +279,8 @@ void handle_udev_device(state_t *state, struct udev_device *udevice) {
 				//close(fd);
 				//state_print(state);
 
+			} else {
+				printf("WARNING: couldn't open input device %s\n", devnode);
 			}
 		}
 
@@ -250,13 +296,15 @@ void handle_udev_device(state_t *state, struct udev_device *udevice) {
 }
 
 void check_input(state_t *state) {
-	int return_value = poll(state->pool, state->len, -1);
-	//printf("poll return value: %d\n", return_value);
-	if (return_value > 0) {
+	int poll_result = poll(state->pool, state->len, -1);
+	//printf("poll return value: %d\n", poll_result);
+	if (poll_result > 0) {
+		/* Step through the pool and handle any pending events. */
 		for (nfds_t i = 0; i < state->len; i++) {
 			//printf("slot %ld type %d revents %d\n", i, state->info[i].type, state->pool[i].revents);
 			switch(state->info[i].type) {
 				case FD_TYPE_UDEV:
+					/* Handle udev monitor events. */
 					if (state->pool[i].revents > 0) {
 						//printf("Udev has something to say! revents: %d\n", state->pool[i].revents);
 					}
@@ -273,6 +321,7 @@ void check_input(state_t *state) {
 					}
 					break;
 				case FD_TYPE_INPUT:
+					/* Handle input device events. */
 					bool do_print = false;
 					if (state->pool[i].revents > 0) {
 						do_print = true;
@@ -300,6 +349,7 @@ void check_input(state_t *state) {
 					}
 					break;
 				case FD_TYPE_LISTENSOCKET:
+					/* Handle new client connections. */
 					if (state->pool[i].revents & POLLIN) {
 						state->pool[i].revents &= ~POLLIN;
 						//printf("Accepting socket\n");
@@ -322,6 +372,8 @@ void check_input(state_t *state) {
 							//printf("Getpeername failed\n");
 							state->info[idx].name = strdup("client socket");
 						}
+						/* Add this fd to the clients list. */
+						state_add_client(state, state->pool[idx].fd);
 						printf("Connected: %s\n", state->info[idx].name);
 
 					}
@@ -330,6 +382,7 @@ void check_input(state_t *state) {
 					}
 					break;
 				case FD_TYPE_CLIENTSOCKET:
+					/* Handle client data. */
 					bool do_close = false;
 					if (state->pool[i].revents & POLLIN) {
 						state->pool[i].revents &= ~POLLIN;
@@ -359,7 +412,11 @@ void check_input(state_t *state) {
 					}
 					if (do_close) {
 						printf("closing client %s\n", state->info[i].name);
+						/* Remove this fd from the clients list. */
+						state_remove_client(state, state->pool[i].fd);
+						/* Announce shutdown of socket */
 						shutdown(state->pool[i].fd, SHUT_RDWR);
+						/* Let state_remove handle file descriptor close. */
 						state_remove(state, i);
 						i--; // careful, modifying i here!
 					}
@@ -374,36 +431,24 @@ void check_input(state_t *state) {
 
 int main(int argc, char **argv) {
 	state_t *state = state_create();
+
 	state->udev_context = udev_new();
 
+	/* Use udev to scan through and add all currently existing input devices. */
 	struct udev_enumerate *enumerator = udev_enumerate_new(state->udev_context);
-
 	udev_enumerate_add_match_subsystem(enumerator, "input");
-	//int result = udev_enumerate_scan_devices(enumerator);
 	udev_enumerate_scan_devices(enumerator);
-	//fprintf(stderr, "udev_enumerate_scan_devices() result: %d\n", result);
-
-
-
-	nfds_t udev_idx = state_add(state);
-	//printf("Using idx %ld for udev\n", udev_idx);
-	state->info[udev_idx].name = strdup("udev monitor");
-	state->info[udev_idx].type = FD_TYPE_UDEV;
-
-	//state_print(state);
-
 	struct udev_list_entry *udev_entry = udev_enumerate_get_list_entry(enumerator);
 	while (udev_entry != NULL) {
 		const char *syspath = udev_list_entry_get_name(udev_entry);
 		struct udev_device *udevice = udev_device_new_from_syspath(state->udev_context, syspath);
-		//printf("%s\n", syspath);
 		handle_udev_device(state, udevice);
 		udev_device_unref(udevice);
 		udev_entry = udev_list_entry_get_next(udev_entry);
 	}
-
 	udev_enumerate_unref(enumerator);
 
+	/* Set up a udev monitor to catch any new input devices. */
 	state->monitor = udev_monitor_new_from_netlink(state->udev_context, "udev");
 	if (!state->monitor) {
 		fprintf(stderr, "Failed to create udev monitor!\n");
@@ -418,6 +463,10 @@ int main(int argc, char **argv) {
 		return EXIT_FAILURE;
 	}
 
+	/* Add the udev monitor file descriptor to the state. */
+	nfds_t udev_idx = state_add(state);
+	state->info[udev_idx].name = strdup("udev monitor");
+	state->info[udev_idx].type = FD_TYPE_UDEV;
 	state->pool[udev_idx].fd = udev_monitor_get_fd(state->monitor);
 	state->pool[udev_idx].events = POLLIN;
 
@@ -448,6 +497,8 @@ int main(int argc, char **argv) {
 		printf("can't listen to port\n");
 		return EXIT_FAILURE;
 	}
+
+	/* Add the listen socket file descriptor to the state. */
 	nfds_t listensock_idx = state_add(state);
 	printf("Using idx %ld for listen socket\n", listensock_idx);
 	state->pool[listensock_idx].fd   = sock;
@@ -458,15 +509,15 @@ int main(int argc, char **argv) {
 	printf("Listening on port %d\n", port);
 	printf("  sizeof struct timeval: %ld\n", sizeof(struct timeval));
 	printf("  sizeof struct input_event: %ld\n", sizeof(struct input_event));
-	printf("  sizeof struct input_socket_packet: %ld\n", sizeof(struct input_socket_packet));
+	printf("  sizeof struct input_socket_packet: %ld <-- this should be 23!\n", sizeof(struct input_socket_packet));
 
+	/* Main loop */
 	while (true) {
 		check_input(state);
 	}
 
 
 	udev_unref(state->udev_context);
-
 	state_destroy(state);
 	return 0;
 }
