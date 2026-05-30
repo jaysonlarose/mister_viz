@@ -642,6 +642,19 @@ class Stick(Control):# {{{
 			self.y_axis.reset()
 		self.emit("reset")
 # }}}
+class TouchSlot:
+	def __init__(self):
+		self.x = 0
+		self.y = 0
+		self.finger_down = False
+	def __eq__(self, other):
+		return self.x == other.x and self.y == other.y and self.finger_down == other.finger_down
+class TouchElement(Control):
+	def __init__(self, slots, extents, drange):
+		self.slots = [ TouchSlot() for x in range(slots) ]
+		self.extents = extents
+		self.drange = drange
+
 class Relative(Control):
 	def __init__(self, x_axis=None, y_axis=None):
 		self.x_axis = x_axis
@@ -734,6 +747,7 @@ class Axis(Control):# {{{
 			self.mapped_to = self.spec['analog']['mapped_to']
 			self.min_value = self.spec['analog']['min_value']
 			self.max_value = self.spec['analog']['max_value']
+			self.default_value = self.spec['analog']['default_value']
 			self.segments = self.svg_res.axes[self.mapped_to].segments
 			self.parent_control = self.svg_res.axes[self.mapped_to]
 		# Presence of a 'knob' attribute means this is a knob for a MisterVizResourceMap
@@ -998,7 +1012,16 @@ def svg_state_split(svg_bytes, debug=False):# {{{
 					ret[key] = lxml.etree.tostring(crumb)
 
 				handled = True
-				
+			if dt == "touchelement":
+
+				touchelement_groups = [ x for x in xmlwalk(tree) if 'data-type' in x.attrib and 'data-state' in x.attrib and x.attrib['data-type'] == 'touchelement' and x.attrib['data-state'] == ds ]
+				print(f"touchelement_groups: {touchelement_groups}", file=sys.stderr)
+				touchelement_group = touchelement_groups[0]
+				slot_count = int(touchelement_group.attrib['data-slots'])
+				for idx in range(slot_count):
+					key = f"{dt}:{ds}:{idx}"
+					ret[key] = lxml.etree.tostring(chip)
+				handled = True
 		if not handled:
 			ret[state] = lxml.etree.tostring(chip)
 	return ret
@@ -1017,6 +1040,7 @@ class SvgControllerResources:# {{{
 		self.sticks = {}
 		self.relatives = {}
 		self.knobs = {}
+		self.touchelements = {}
 		self.vid = 0xffff
 		self.pid = 0xffff
 		self.has_rumble = False
@@ -1033,7 +1057,7 @@ class SvgControllerResources:# {{{
 		for elem in state_elems:
 			state_value = elem.attrib['data-state']
 			if 'data-type' not in elem.attrib:
-				raise RuntimeError(f"SVG ERROR ({svg_filename}): group with data-state {elem.attrb['data-state']} has no data-type!")
+				raise RuntimeError(f"SVG ERROR ({svg_filename}): group with data-state {elem.attrib['data-state']} has no data-type!")
 			type_value = elem.attrib['data-type']
 			if type_value == 'button':
 				self.buttons[state_value] = Button(state_value)
@@ -1123,6 +1147,18 @@ class SvgControllerResources:# {{{
 				relative_obj.radius = radius
 				relative_obj.rgba   = rgba
 				self.relatives[state_value] = relative_obj
+			elif type_value == 'touchelement':
+				if 'data-extents' not in elem.attrib:
+					raise RuntimeError(f"SVG ERROR ({svg_filename}): group ({elem.attrib}) with data-type 'touchelement' has no data-extents!")
+				if 'data-slots' not in elem.attrib:
+					raise RuntimeError(f"SVG ERROR ({svg_filename}): group ({elem.attrib}) with data-type 'touchelement' has no data-slots!")
+				if 'data-range' not in elem.attrib:
+					raise RuntimeError(f"SVG ERROR ({svg_filename}): group ({elem.attrib}) with data-type 'touchelement' has no data-range!")
+				extents = [ int(x) for x in elem.attrib['data-extents'].split() ]
+				drange = [ int(x) for x in elem.attrib['data-range'].split() ]
+				slots = int(elem.attrib['data-slots'])
+				self.touchelements[f"{state_value}"] = TouchElement(slots, extents, drange)
+
 		for k, v in self.sticks.items():
 			if k in self.buttons:
 				v.button = self.buttons[k]
@@ -1145,8 +1181,13 @@ class SvgControllerResources:# {{{
 		for k in sorted(self.axes.keys()):
 			sub.append(self.axes[k].value)
 		ret.append(tuple(sub))
+		sub = []
+		for k in sorted(self.touchelements.keys()):
+			sub.append([ [slot.finger_down, slot.x, slot.y] for slot in self.touchelements[k].slots ])
+		ret.append(tuple(sub))
 		if self.has_rumble:
 			ret.append(self.rumbling)
+		#print(ret, file=sys.stderr)
 		return tuple(ret)
 	# }}}
 	def load_state(self, dump):# {{{
@@ -1154,8 +1195,16 @@ class SvgControllerResources:# {{{
 			self.buttons[k].set_value(dump[0][i])
 		for i, k in enumerate(sorted(self.axes.keys())):
 			self.axes[k].set_value(dump[1][i])
+		for i, k in enumerate(sorted(self.touchelements.keys())):
+			touchelement = self.touchelements[k]
+			for slotno in range(len(touchelement.slots)):
+				#print(dump[2][i][slotno], file=sys.stderr)
+				finger_down, slot_x, slot_y = dump[2][i][slotno]
+				touchelement.slots[slotno].finger_down = finger_down
+				touchelement.slots[slotno].x = slot_x
+				touchelement.slots[slotno].y = slot_y
 		if self.has_rumble:
-			self.rumbling = dump[2]
+			self.rumbling = dump[3]
 	# }}}
 	def format_state(self):# {{{
 		frags = []
@@ -1230,6 +1279,7 @@ class MisterVizResourceMap:# {{{
 			all_buttons |= x.all_states()
 		for x in self.axes.values():
 			all_buttons |= x.all_states()
+		self.touchelements = {}
 		# Process svg file
 		#self.svgs = svg_state_split(self.base_svg)
 		self.svgs = self.svg_res.svgs
@@ -2015,7 +2065,9 @@ class MisterViz:# {{{
 		self.connect_handle = GLib.timeout_add(100, self.connect_handler)
 		return False
 	def keepalive_handler(self):# {{{
+		nao = now_tzaware()
 		if not self.sock._closed:
+			#print(f"{format_timestamp(nao)}: Sending PING!")
 			self.sock.send(bytes([OP_PING]))
 		if self.keepalive_handle is not None:
 			GLib.source_remove(self.keepalive_handle)
@@ -2526,6 +2578,14 @@ class MisterVizRenderer:# {{{
 
 				Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[pixkey][0], (offsets['x'] * self.scalefactor) + self.pixbufs[pixkey][1] + self.global_x_offset, (offsets['y'] * self.scalefactor) + self.pixbufs[pixkey][2] + self.global_y_offset)
 				cr.paint()
+		for k, touchelement in self.res.touchelements.items():
+			for slotno, slot in enumerate(touchelement.slots):
+				pixkey = f"touchelement:{k}:{slotno}"
+				if slot.finger_down:
+					x_pos = translate_constrainedint(slot.x, 0, touchelement.drange[0], 0, touchelement.extents[0])
+					y_pos = translate_constrainedint(slot.y, 0, touchelement.drange[1], 0, touchelement.extents[1])
+					Gdk.cairo_set_source_pixbuf(cr, self.pixbufs[pixkey][0], (x_pos * self.scalefactor) + self.pixbufs[pixkey][1] + self.global_x_offset, (y_pos * self.scalefactor) + self.pixbufs[pixkey][2] + self.global_y_offset)
+					cr.paint()
 		return surface
 		# }}}
 # }}}
@@ -2784,7 +2844,7 @@ class MisterVizWindowStub(Gtk.Window):# {{{
 		self.trigger_draw()
 	# }}}
 	def rumble_handler(self, event):# {{{
-		print("rumble handler", file=sys.stderr)
+		print(f"rumble handler {event.code} {event.value}", file=sys.stderr)
 		if self.res.last_rumble is not None:
 			print(event.timestamp() - self.res.last_rumble, file=sys.stderr)
 			if event.timestamp() - self.res.last_rumble < (1 / 60):

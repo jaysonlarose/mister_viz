@@ -3,7 +3,7 @@ import mister_viz, mister_viz_openvizsla
 
 import os, sys, binascii, jlib, time, random, math
 
-svg_filename = "dualshock3.svg"
+svg_filename = "dualshock4.svg"
 
 class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
 	"""
@@ -128,6 +128,29 @@ class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
 			#37 - bits 0:3: x pos bits 8:11
 			#37 - bits 4-7: y pos bits 0:3
 			#38 - y pos bits 4-11
+			ts = mister_viz.TouchSlot()
+			ts.finger_down = payload[35] & 0x80 == 0
+			ts.x = payload[36]
+			ts.x |= (payload[37] & 0x0f) << 8
+			ts.y = payload[37] >> 4
+			ts.y |= (payload[38] << 4)
+
+			res_slot = self.res.touchelements['touch'].slots[0]
+			if res_slot != ts:
+				self.res.touchelements['touch'].slots[0] = ts
+				dirty = True
+
+			ts = mister_viz.TouchSlot()
+			ts.finger_down = payload[39] & 0x80 == 0
+			ts.x = payload[40]
+			ts.x |= (payload[41] & 0x0f) << 8
+			ts.y = payload[41] >> 4
+			ts.y |= (payload[42] << 4)
+
+			res_slot = self.res.touchelements['touch'].slots[1]
+			if res_slot != ts:
+				self.res.touchelements['touch'].slots[1] = ts
+				dirty = True
 
 
 
@@ -139,6 +162,8 @@ class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
 			#	bits 0-6: event serial
 
 			#note: event serial increments, is shared between both touchpad slots
+			#note: maximum x,y values seem to be in the vicinity of 1919,939.
+			#0,0 is the upper left of the touchpad, 1919,939 is the lower right.
 
 
 

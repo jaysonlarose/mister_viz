@@ -37,36 +37,37 @@ class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
 	def event_handler(self, widget, event):
 		self.last_event = event
 		dirty = False
-		if len(event) != 4:
-			return
 		state = set()
-		if event[0] & 0x01:
+		payload = event.payload
+		if len(payload) != 4:
+			return
+		if payload[0] & 0x01:
 			state.add("right")
-		if event[0] & 0x02:
+		if payload[0] & 0x02:
 			state.add("left")
-		if event[0] & 0x04:
+		if payload[0] & 0x04:
 			state.add("down")
-		if event[0] & 0x08:
+		if payload[0] & 0x08:
 			state.add("up")
-		if event[0] & 0x10:
+		if payload[0] & 0x10:
 			state.add("start")
-		if event[0] & 0x20:
+		if payload[0] & 0x20:
 			state.add("z")
-		if event[0] & 0x40:
+		if payload[0] & 0x40:
 			state.add("b")
-		if event[0] & 0x80:
+		if payload[0] & 0x80:
 			state.add("a")
-		if event[1] & 0x01:
+		if payload[1] & 0x01:
 			state.add("c_right")
-		if event[1] & 0x02:
+		if payload[1] & 0x02:
 			state.add("c_left")
-		if event[1] & 0x04:
+		if payload[1] & 0x04:
 			state.add("c_down")
-		if event[1] & 0x08:
+		if payload[1] & 0x08:
 			state.add("c_up")
-		if event[1] & 0x10:
+		if payload[1] & 0x10:
 			state.add("r")
-		if event[1] & 0x20:
+		if payload[1] & 0x20:
 			state.add("l")
 
 
@@ -80,8 +81,8 @@ class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
 				dirty = True
 
 		limits = self.axis_limits['stick']
-		stick_x = struct.unpack("b", bytes([event[2]]))[0]
-		stick_y = struct.unpack("b", bytes([event[3]]))[0]
+		stick_x = struct.unpack("b", bytes([payload[2]]))[0]
+		stick_y = struct.unpack("b", bytes([payload[3]]))[0]
 		limits['x'][2] = stick_x
 		limits['y'][2] = stick_y * -1
 

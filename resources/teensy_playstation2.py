@@ -1,20 +1,8 @@
-#!/usr/bin/env python3
-
-import gi, os, sys, serial, signal, jlib, datetime, time, binascii, struct
-from gi.repository import GLib, GObject
-
-import mister_viz
 import mister_viz_openvizsla
-import mister_viz_gamecube
+import struct
 
+NAME = "playstation2"
 SVG_FILENAME = "dualshock3.svg"
-
-
-class Parser(mister_viz_gamecube.Parser):
-	pass
-
-class Reader(mister_viz_gamecube.Reader):
-	pass
 
 
 class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
@@ -255,73 +243,3 @@ class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
 			#print(self.res.axes['l'].value)
 			#print(self.res.axes['r'].value)
 			self.set_dirty()
-
-if __name__ == '__main__':
-
-	config_basedir = mister_viz.get_yaml_basedir()
-	import argparse
-	parser = argparse.ArgumentParser()
-	parser.add_argument("port")
-	parser.add_argument("-l", "--log-file", action="store", dest="log_file", default=None, help="Write usb dump to log file LOG_FILE. Use magic name \":auto:\" to auto-create based on time and date.")
-	parser.add_argument("-c", "--console", action="store_true", dest="do_console", default=False, help="Spawn REPL on stdin/stdout")
-	args = parser.parse_args()
-
-	if args.log_file == ':auto:':
-		nao = datetime.datetime.now()
-		naostr = nao.strftime("%F %T").replace(":", "_")
-		log_file = f"playstation2__{naostr}.log"
-	else:
-		log_file = args.log_file
-
-
-	loop = GLib.MainLoop()
-	reader = Reader(args.port)
-	stub = mister_viz.MisterVizStub()
-	res = mister_viz.SvgControllerResources(os.path.join(mister_viz.get_yaml_basedir(), SVG_FILENAME))
-
-	window = mister_viz.MisterVizWindow(stub, controller_resource=res)
-	stub.windows[window.window_id] = window
-	translator = Translator(res)
-
-	def translator_dirty_handler(widget):
-		window.darea.queue_draw()
-		widget.reset_dirty()
-
-	translator.connect("dirty", translator_dirty_handler)
-
-	if log_file is not None:
-		print(f"Logging to {log_file}")
-		dumper = mister_viz_openvizsla.DumpLogger(log_file)
-		reader.connect("line", dumper.line_handler)
-	
-	parser = Parser()
-	parser.connect("event", translator.event_handler)
-	reader.connect("line", parser.line_handler)
-
-	def shutdown_handler():
-		reader.shutdown()
-		if log_file is not None:
-			dumper.shutdown()
-		stub.shutdown()
-		loop.quit()
-
-	
-	def sigint_handler(sig, frame):
-		print("SIGINT HANDLER CALLED")
-		shutdown_handler()
-	
-	def window_destroy_handler(window):
-		shutdown_handler()
-
-	import signal
-	signal.signal(signal.SIGINT, sigint_handler)
-	window.connect("destroy", window_destroy_handler)
-	reader.startup()
-	if args.do_console:
-		import debugrepl, glib_editingline
-		cli = glib_editingline.CliInterpreter(None, namespace=globals())
-		def cli_controlc_handler(*args):
-			shutdown_handler()
-
-		cli.connect("control-c", cli_controlc_handler)
-	loop.run()

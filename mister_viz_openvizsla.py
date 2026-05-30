@@ -151,6 +151,7 @@ class OpenVizslaSniffer(GObject.GObject):
 		self.proc = ptyprocess.PtyProcess.spawn(procargs)
 		fcntl.fcntl(self.proc.fileno(), fcntl.F_SETFL, fcntl.fcntl(self.proc.fileno(), fcntl.F_GETFL) | os.O_NONBLOCK)
 		self.io_source = GLib.io_add_watch(self.proc.fileno(), GLib.IO_IN | GLib.IO_HUP, self.stdout_handler)
+		return False
 	def shutdown(self):
 		if self.proc is not None:
 			if self.proc.isalive():
@@ -358,7 +359,7 @@ def packet_dump_handler(widget, timestamp, packet):
 
 if __name__ == '__main__':
 	config_basedir = mister_viz.get_yaml_basedir()
-	available_modules = [ os.path.splitext(x)[0][len("openvizsla_"):] for x in os.listdir(config_basedir) if os.path.splitext(x)[1] == ".py" ]
+	available_modules = [ os.path.splitext(x)[0][len("openvizsla_"):] for x in os.listdir(config_basedir) if x.startswith("openvizsla_") and os.path.splitext(x)[1] == ".py" ]
 	print(f"Available modules: {available_modules}")
 	import argparse
 	parser = argparse.ArgumentParser()

@@ -1,5 +1,8 @@
 // debug: gcc -g -DDEBUG -o mister_viz_server mister_viz_server.c `pkg-config --cflags --libs libudev`
 // gcc -Wall -O2 -march=x86-64 -funroll-loops -s -o mister_viz_server mister_viz_server.c `pkg-config --cflags --libs libudev`
+//
+//
+// gcc -Wall -O2 -march=x86-64 -funroll-loops -s -o mister_viz_server mister_viz_server.c `pkg-config --cflags --libs libudev libgpiod`
 
 /* mister_viz_server
  * A standalone implementation of the mister_viz protocol for Linux systems,
@@ -28,6 +31,7 @@
 #include <unistd.h>
 #include <sys/poll.h>
 #include <stdbool.h>
+#include <errno.h>
 
 #define SOCKET_BINDPORT 22101
 #define SOCKET_BINDHOST ""
@@ -212,8 +216,11 @@ void input_socket_send(state_t *state, uint16_t vid, uint16_t pid, struct input_
 	packet.tv_usec = ev->time.tv_usec;
 
 	for (nfds_t i = 0; i < state->clients_len; i++) {
-		if (write(state->clients[i], (char *) &packet, sizeof(packet)) != sizeof(packet)) {
-			printf("WARNING: input_socket_send failed to write all data!\n");
+		ssize_t wrote_size = send(state->clients[i], (char *) &packet, sizeof(packet), MSG_NOSIGNAL);
+		if (wrote_size == -1) {
+			printf("WARNING: input_socket_send returned error %d (%s) trying to write data!", errno, strerror(errno));
+		} else if (wrote_size != sizeof(packet)) {
+			printf("WARNING: input_socket_send failed to write all data (wrote %ld bytes, packet size %ld)!\n", wrote_size, sizeof(packet));
 		}
 	}
 }
@@ -394,11 +401,18 @@ void check_input(state_t *state) {
 							uint8_t opcode = trash[0];
 							if (opcode == OP_PING) {
 								trash[0] = OP_PONG;
-								if (write(state->pool[i].fd, (char *) trash, 1) != 1) {
+								if (send(state->pool[i].fd, (char *) trash, 1, MSG_NOSIGNAL) != 1) {
 									printf("WARNING: failed to send PING response!\n");
 								}
 							} else {
 								printf("Unknown opcode %d from %s, dropping client\n", opcode, state->info[i].name);
+								char remain[128];
+								int remainlen = read(state->pool[i].fd, remain, 128);
+								printf("Remaining %d bytes: ", remainlen);
+								for (int i = 0; i < remainlen; i++) {
+									printf("%02x ", (unsigned int) remain[i]);
+								}
+								printf("\n");
 								do_close = true;
 							}
 						}

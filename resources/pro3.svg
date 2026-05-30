@@ -148,11 +148,11 @@ tspan {
          id="stop6676"
          offset="0.1" />
       <stop
-         class="inactive transparent_gradient"
+         class="inactive"
          id="stop6678"
          offset="0.1" />
       <stop
-         class="inactive transparent_gradient"
+         class="inactive"
          id="stop6680"
          offset="1" />
     </linearGradient>

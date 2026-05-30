@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
-import os, sys, gi
+import os, sys, gi, mister_viz
 from mister_viz import *
-from mister_viz_openvizsla import *
-
 from gi.repository import GLib, GObject
+import mister_viz_teensy
 
-from fake_events import InputEvent as evdev_InputEvent
-from fake_events import categorize as evdev_categorize
-import fake_ecodes as ecodes
 import decimal
 
 # Set to either 'qtrle' or 'png'
@@ -33,11 +29,14 @@ class LogReader(GObject.GObject):
 				self.emit("finished")
 				return False
 			line = line.strip()
-			ts_text, line = line.split(' ', 1)
+			frags = line.split(' ', 1)
+			if len(frags) == 1:
+				return True
+			ts_text, line = frags
 			self.last_timestamp = float(ts_text)
 			if self.first_timestamp is None:
 				self.first_timestamp = self.last_timestamp
-			#print(f"LogReader line: {line}", file=sys.stderr)
+			#print(line, file=sys.stderr)
 			self.emit("line", self.last_timestamp, line)
 			return True
 		if flags & GLib.IO_HUP:
@@ -48,37 +47,44 @@ class LogReader(GObject.GObject):
 # ./mister_viz_render.py ~/mister_viz__2022-11-29\ 21_25_56.log -v 2dc8 -p 2865 -r 60.1 | ffmpeg -f rawvideo -pix_fmt bgra -video_size 602x293 -framerate 60.1 -i - -c:v hevc_nvenc -f matroska ~/mister_viz.mkv
 # 1.86x
 # ./mister_viz_render.py ~/mister_viz__2022-11-29\ 21_25_56.log -v 2dc8 -p 2865 -r 60.1 | ffmpeg -f rawvideo -pix_fmt bgra -video_size 602x293 -framerate 60.1 -i - -c:v libvpx-vp9 -row-mt 1 -threads 8 -speed 4 -f matroska ~/mister_viz.mkv
-# 1.23x#
+# 1.23x
 # ./mister_viz_render.py ~/mister_viz__2022-11-29\ 21_25_56.log -v 2dc8 -p 2865 -r 60.1 | ffmpeg -f rawvideo -pix_fmt bgra -video_size 602x293 -framerate 60.1 -i - -c:v libvpx-vp9 -row-mt 1 -f matroska ~/mister_viz.mkv
 # Git/mister_viz/mister_viz_render.py '/media/Recordings/games/raw/mister_viz__2023-01-09 06_19_03.log' -v 1a61 -p 2049 -y Git/mister_viz/resources/utility_jaystech_nes_to_nes30pro2.yaml -r 59.73 | ffmpeg -f rawvideo -pix_fmt bgra -video_size 602x293 -framerate 59.73 -i - -c:v png -f matroska 'mister_viz__2023-01-09 06_19_03.mkv'
 
 if __name__ == '__main__':
-	config_basedir = get_yaml_basedir()
-	available_modules = [ os.path.splitext(x)[0][len("openvizsla_"):] for x in os.listdir(config_basedir) if os.path.splitext(x)[1] == ".py" ]
+	config_basedir = mister_viz.get_yaml_basedir()
+	sys.path.append(config_basedir)
+	available_personalities = [ os.path.splitext(x)[0][len("teensy_"):] for x in os.listdir(config_basedir) if x.startswith("teensy_") and os.path.splitext(x)[1] == ".py" ]
+	print(f"Available personalities: {available_personalities}")
+
 	import locale
 	locale.setlocale(locale.LC_ALL, "")
 	import argparse
 	parser = argparse.ArgumentParser()
-	parser.add_argument("module_name", action="store", choices=available_modules, help="Translation module to invoke")
 	parser.add_argument("log_file")
+	parser.add_argument("personality", action="store", choices=available_personalities, help="Personality module to invoke")
 	parser.add_argument("-w", "--width", dest="width", type=int, default=None, help="Specify scale width")
 	parser.add_argument("-r", "--framerate", dest="framerate", default=None, type=float, help="frame rate")
 	parser.add_argument("-y", "--yaml", dest="yaml_file", default=None, help="Explicitly force this YAML file to be used")
 	parser.add_argument("--fudgefactor", dest="fudgefactor", default=None, type=str, help="Specify decimal.Decimal fudge factor to alter timestamps by")
+	parser.add_argument("--project", dest="project", default=None, type=str, help="Add a project name to the output video metadata")
 	parser.add_argument("-f", "--force-state", action="append", dest="force_states", default=[], help="Force this state to the specified value when rendering. Can be specified multiple times. Format: type:name:value")
 	parser.add_argument("--get-dims", action="store_true", dest="get_dims", default=False, help="Run me to get final output dimensions")
 	parser.add_argument("--pretend", action="store_true", dest="pretend", default=False, help="do everything except output frame data")
 	parser.add_argument("--parse-events", action="store_true", dest="parse_events", default=False, help="instead of outputting frames, just output the event that each log entry describes")
 	parser.add_argument("--ffmpeg-args", action="store_true", dest="ffmpeg_args", default=False, help="Output sample args suitable for ffmpeg")
+	parser.add_argument("--jffmpeg-args", action="store_true", dest="jffmpeg_args", default=False, help="blah blah shim")
+	parser.add_argument("--jffmpeg", action="store_true", dest="jffmpeg", default=False, help="blah blah go")
 	parser.add_argument("--timestamps", action="store_true", dest="timestamps", default=False, help="Add event timestamps to rendered output")
 	args = parser.parse_args()
 
-	module_path = os.path.join(config_basedir, f"openvizsla_{args.module_name}.py")
+	personality_path = os.path.join(config_basedir, f"teensy_{args.personality}.py")
 
 	import importlib.util
-	spec = importlib.util.spec_from_file_location("abcxyz", module_path)
-	module = importlib.util.module_from_spec(spec)
-	spec.loader.exec_module(module)
+	spec = importlib.util.spec_from_file_location("abcxyz", personality_path)
+	personality = importlib.util.module_from_spec(spec)
+	spec.loader.exec_module(personality)
+
 
 	if args.timestamps:
 		fw = FontWriter("Monospace", "Regular", 10)
@@ -86,7 +92,7 @@ if __name__ == '__main__':
 		dummy_context = cairo.Context(dummy_surface)
 		fw.set_context(dummy_context)
 		timestamp_dims = [ int(x) for x in fw.get_dims(format_timestamp(now_tzaware(), omit_tz=True, precision=3)) ]
-	
+		
 	if args.fudgefactor:
 		decimal.getcontext().prec = 128
 		fudgefactor = decimal.Decimal(args.fudgefactor)
@@ -94,9 +100,9 @@ if __name__ == '__main__':
 		fudgefactor = None
 
 	res = None
-	res = SvgControllerResources(os.path.join(mister_viz.get_yaml_basedir(), module.svg_filename))
+	res = SvgControllerResources(os.path.join(mister_viz.get_yaml_basedir(), personality.SVG_FILENAME))
 
-	translator = module.Translator(res)
+	translator = personality.Translator(res)
 
 	force_states = []
 
@@ -125,6 +131,7 @@ if __name__ == '__main__':
 		
 	log_fh = open(args.log_file, "r")
 	# ts_start gets set to the timestamp of the first event in the log
+	global ts_start
 	ts_start = None
 	# each mister_viz event log entry has two timestamps: wallclock time of the input event as determined by
 	# the MiSTer's internal timekeeping, and the wllclock time of the network packet received by the machine
@@ -136,63 +143,13 @@ if __name__ == '__main__':
 	current_frame = 0
 
 
-
-	if args.ffmpeg_args:
-		import shlex
-		renderer = MisterVizRenderer(res, width=args.width, bgcolor=None)
-
-		procargs_lhs = []
-		procargs_lhs.append(sys.argv[0])
-		procargs_lhs.append(args.module_name)
-		procargs_lhs.append(args.log_file)
-		output_file = os.path.basename(args.log_file)
-		output_file = os.path.splitext(output_file)[0]
-		if args.fudgefactor:
-			output_file = f"{output_file}__fudged"
-		if OUTPUT_TYPE == 'png':
-			output_file = f"{output_file}.mkv"
-		elif OUTPUT_TYPE == 'qtrle':
-			output_file = f"{output_file}.mov"
-		procargs_lhs.extend(['-r', f"{args.framerate}"])
-		if args.timestamps:
-			procargs_lhs.append("--timestamps")
-		if args.width:
-			procargs_lhs.extend([f"-w", f"{args.width}"])
-		if args.fudgefactor:
-			procargs_lhs.extend(['--fudgefactor', f"{args.fudgefactor}"])
-		procargs_rhs = []
-		procargs_rhs.extend(['ffmpeg', '-y', '-f', 'rawvideo', '-pix_fmt', 'bgra'])
-		if args.timestamps:
-			procargs_rhs.extend(['-video_size', f"{renderer.width}x{renderer.height + timestamp_dims[1] + 5}"])
-		else:
-			procargs_rhs.extend(['-video_size', f"{renderer.width}x{renderer.height}"])
-		for state_spec in args.force_states:
-			procargs_lhs.extend(['-f', state_spec])
-		procargs_rhs.extend(['-framerate', f"{args.framerate}"])
-		procargs_rhs.extend(['-i', '-'])
-		if OUTPUT_TYPE == 'png':
-			procargs_rhs.extend(['-c:v', 'png', '-f', 'matroska'])
-		elif OUTPUT_TYPE == 'qtrle':
-			procargs_rhs.extend(['-c:v', 'qtrle'])
-		procargs_rhs.extend([output_file])
-		print(f"{shlex.join(procargs_lhs)} | {shlex.join(procargs_rhs)}")
-		sys.exit(0)
-
-	global lc
-	lc = 0
-	def line_counter(*stuff):
-		global lc
-		lc += 1
-		print(lc, sys.stderr)
-
 	loop = GLib.MainLoop()
 
 	reader = LogReader(log_fh)
 
-	parser = OpenVizslaParser()
-	translator = module.Translator(res)
+	parser = mister_viz_teensy.Parser()
+	translator = personality.Translator(res)
 	reader.connect("line", parser.line_handler)
-	#reader.connect("line", line_counter)
 
 	def reader_finished_handler(widget):
 		loop.quit()
@@ -209,6 +166,10 @@ if __name__ == '__main__':
 		ts = widget.last_event.timestamp
 		if fudgefactor is not None:
 			ts = float(decimal.Decimal(ts) * fudgefactor)
+		global ts_start
+		if ts_start is None:
+			ts_start = ts
+		ts = ts - ts_start
 		frameno = get_frameno(0.0, args.framerate, ts)
 		if frameno not in framechanges:
 			framechanges[frameno] = []
@@ -216,8 +177,8 @@ if __name__ == '__main__':
 			control.set_value(val)
 		framechanges[frameno].append(res.dump_state())
 		#print(widget.last_event.timestamp, file=sys.stderr)
-		sys.stderr.write(f"{widget.last_event.timestamp!r}\r")
-		sys.stderr.flush()
+		#sys.stderr.write(f"{widget.last_event.timestamp}\r")
+		#sys.stderr.flush()
 		widget.reset_dirty()
 
 	translator.connect("dirty", dirty_handler)
@@ -228,23 +189,123 @@ if __name__ == '__main__':
 	sys.stderr.flush()
 
 	
+	print(f"{len(framechanges)} frame changes", file=sys.stderr)
 
-	for fc in sorted(framechanges):
-		if len(framechanges[fc]) > 1:
-			print(f"{fc} {len(framechanges[fc])}", file=sys.stderr)
-			for val in framechanges[fc]:
-				print(f"  {val}", file=sys.stderr)
+	if args.ffmpeg_args or args.jffmpeg_args or args.jffmpeg:
+		import shlex
+		renderer = MisterVizRenderer(res, width=args.width, bgcolor=None)
+
+		procargs_lhs = []
+		procargs_lhs.append(sys.argv[0])
+		procargs_lhs.append(args.log_file)
+		procargs_lhs.append(args.personality)
+		output_file = os.path.basename(args.log_file)
+		output_file = os.path.splitext(output_file)[0]
+		if args.fudgefactor:
+			output_file = f"{output_file}__fudged"
+		if OUTPUT_TYPE == 'png':
+			output_file = f"{output_file}.mkv"
+		elif OUTPUT_TYPE == 'qtrle':
+			output_file = f"{output_file}.mov"
+		procargs_lhs.extend(['-r', f"{args.framerate}"])
+		if args.timestamps:
+			procargs_lhs.append("--timestamps")
+		if args.width:
+			procargs_lhs.extend([f"-w", f"{args.width}"])
+		if args.fudgefactor:
+			procargs_lhs.extend(['--fudgefactor', f"{args.fudgefactor}"])
+	if args.ffmpeg_args:
+		procargs_rhs = []
+		procargs_rhs.extend(['ffmpeg', '-y', '-f', 'rawvideo', '-pix_fmt', 'bgra'])
+		if args.timestamps:
+			procargs_rhs.extend(['-video_size', f"{renderer.width}x{renderer.height + timestamp_dims[1] + 5}"])
+		else:
+			procargs_rhs.extend(['-video_size', f"{renderer.width}x{renderer.height}"])
+		for state_spec in args.force_states:
+			procargs_lhs.extend(['-f', state_spec])
+		procargs_rhs.extend(['-framerate', f"{args.framerate}"])
+		procargs_rhs.extend(['-i', '-'])
+		if OUTPUT_TYPE == 'png':
+			procargs_rhs.extend(['-c:v', 'png', '-f', 'matroska'])
+		elif OUTPUT_TYPE == 'qtrle':
+			procargs_rhs.extend(['-c:v', 'qtrle'])
+
+		if args.fudgefactor:
+			if OUTPUT_TYPE == 'qtrle':
+				procargs_rhs.extend(['-movflags', 'use_metadata_tags'])
+			procargs_rhs.extend(['-metadata', f"fudgefactor={args.fudgefactor}"])
+		if args.project:
+			procargs_rhs.extend(['-metadata', f"project={args.project}"])
+		procargs_rhs.extend([output_file])
+		print(f"{shlex.join(procargs_lhs)} | {shlex.join(procargs_rhs)}")
+		sys.exit(0)
+	if args.jffmpeg_args or args.jffmpeg:
+		procargs_rhs = []
+		procargs_rhs.extend(['/home/jayson/Git/mister_viz/jffmpeg_shim.py'])
+		if args.timestamps:
+			procargs_rhs.extend(['--width', f"{renderer.width}", '--height', f"{renderer.height + timestamp_dims[1] + 5}"])
+		else:
+			procargs_rhs.extend(['--width', f"{renderer.width}", '--height', f"{renderer.height}"])
+		procargs_rhs.extend(['--frames', f"{max(list(framechanges.keys()))}"])
+		procargs_rhs.extend(['--fps', f"{args.framerate}"])
+		if args.fudgefactor:
+			procargs_rhs.extend(['--fudgefactor', f"{args.fudgefactor}"])
+		if args.project:
+			procargs_rhs.extend(['--project', f"{args.project}"])
+		procargs_rhs.extend([output_file])
+		print(f"{shlex.join(procargs_lhs)} | {shlex.join(procargs_rhs)}")
+		if args.jffmpeg:
+			import subprocess
+			shim_proc = subprocess.Popen(procargs_rhs, stdin=subprocess.PIPE)
+		else:
+			sys.exit(0)
+
+
+
+	#for fc in sorted(framechanges):
+	#	if len(framechanges[fc]) > 1:
+	#		print(f"{fc} {len(framechanges[fc])}", file=sys.stderr)
+	#		for val in framechanges[fc]:
+	#			print(f"  {val}", file=sys.stderr)
 	
 
+	#for i, frameno in enumerate(sorted(framechanges), 1):
+	#	print(f"i {i} frameno {frameno}", file=sys.stderr)
+
+
+	surface_cache = {}
+	# Boil down frames that have multiple changes associated with them down to the most "interesting" version.
+	new_framechanges = {}
+	for frameno in sorted(framechanges)[:]:
+		states = framechanges[frameno]
+		most_interesting_state = sorted(states, key=lambda x: sum(x[0]), reverse=True)[0]
+		new_framechanges[frameno] = most_interesting_state
+		if most_interesting_state != states[-1]:
+			if frameno + 1 not in framechanges:
+				new_framechanges[frameno + 1] = states[-1]
+	del framechanges
+	framechanges = new_framechanges
+	framechange_qty = len(framechanges)
+
+	if args.parse_events:
+		for frameno in sorted(framechanges):
+			state = framechanges[frameno]
+			res.load_state(state)
+			ts_seconds = frameno // args.framerate
+			ts_frames  = int(frameno % args.framerate)
+			ts_minutes = int(ts_seconds // 60)
+			ts_seconds = int(ts_seconds % 60)
+			ts_hours   = int(ts_minutes // 60)
+			ts_minutes = int(ts_minutes % 60)
+			#print(f"{ts_hours}:{ts_minutes}:{ts_seconds}:{ts_frames}: {res.format_state()}")
+
+			print(f"{ts_hours:02d}:{ts_minutes:02d}:{ts_seconds:02d}:{ts_frames:02d}: {res.format_state()}")
 
 	if not args.pretend and not args.parse_events:
-		for frameno in sorted(framechanges)[:]:
-			states = framechanges[frameno]
-			most_interesting_state = sorted(states, key=lambda x: sum(x[0]), reverse=True)[0]
-			if most_interesting_state != states[-1]:
-				if frameno + 1 not in framechanges:
-					framechanges[frameno + 1] = [states[-1]]
-		framechange_qty = len(framechanges)
+		if args.jffmpeg:
+			output_fh = shim_proc.stdin
+		else:
+			output_fh = sys.stdout.buffer
 		for i, frameno in enumerate(sorted(framechanges), 1):
 			if args.timestamps:
 				#print("timestamps", file=sys.stderr)
@@ -260,10 +321,8 @@ if __name__ == '__main__':
 				fw.render(frame_timestamp_text, 0, 0)
 
 
-			states = framechanges[frameno]
-			most_interesting_state = sorted(states, key=lambda x: sum(x[0]), reverse=True)[0]
-			sys.stderr.write("\x1b[2K\x1b[1G")
-			res.load_state(most_interesting_state)
+			state = framechanges[frameno]
+			#sys.stderr.write("\x1b[2K\x1b[1G")
 			frame_gap = frameno - current_frame
 			if args.timestamps:
 				#print("compositing", file=sys.stderr)
@@ -276,11 +335,18 @@ if __name__ == '__main__':
 				surface_bytes = bytes(list(composite_surface.get_data()))
 			else:
 				surface_bytes = bytes(list(surface.get_data()))
-			for i in range(frame_gap):
-				#print(f"frame {frameno - (frame_gap - i)} frameno {frameno} gap {i}/{frame_gap}", file=sys.stderr)
-				sys.stdout.buffer.write(surface_bytes)
+			for j in range(frame_gap):
+				#print(f"frame {frameno - (frame_gap - j)} frameno {frameno} gap {j}/{frame_gap}", file=sys.stderr)
+				output_fh.write(surface_bytes)
+			if state not in surface_cache:
+				res.load_state(state)
+				#print("render", file=sys.stderr)
+				surface = renderer.render()
+				surface_cache[state] = surface
+			else:
+				surface = surface_cache[state]
 			current_frame = frameno
-			#print("render", file=sys.stderr)
-			surface = renderer.render()
 
-
+		if args.jffmpeg:
+			shim_proc.stdin.close()
+			shim_proc.wait()

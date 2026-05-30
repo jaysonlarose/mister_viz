@@ -180,6 +180,16 @@ class MisterVizClutterWindow(MisterVizWindowStub):
 
 					self.actors[pixkey].set_position((offsets['x'] * self.scalefactor) + self.pixbufs[pixkey][1] + self.global_x_offset, (offsets['y'] * self.scalefactor) + self.pixbufs[pixkey][2] + self.global_y_offset)
 					moved_actors.add(pixkey)
+			for k, touchelement in self.res.touchelements.items():
+				for slotno, slot in enumerate(touchelement.slots):
+					pixkey = f"touchelement:{k}:{slotno}"
+					if slot.finger_down:
+						if pixkey in self.actors:
+							opaque_actors.add(pixkey)
+							x_pos = mister_viz.translate_constrainedint(slot.x, 0, touchelement.drange[0], 0, touchelement.extents[0])
+							y_pos = mister_viz.translate_constrainedint(slot.y, 0, touchelement.drange[1], 0, touchelement.extents[1])
+							self.actors[pixkey].set_position((x_pos * self.scalefactor) + self.pixbufs[pixkey][1] + self.global_x_offset, (y_pos * self.scalefactor) + self.pixbufs[pixkey][2] + self.global_y_offset)
+							moved_actors.add(pixkey)
 			for akey in self.actors.keys():
 				if akey in opaque_actors:
 					opacity = 255

@@ -1,0 +1,49 @@
+name: 8BitDo 64
+vid: 0x2dc8
+pid: 0x3019
+svg: 8bitdo_64.svg
+primary: true
+has_rumble: true
+buttons:
+  BTN_A: a
+  BTN_B: b
+  BTN_START: start
+  BTN_SELECT: select
+  BTN_TL: l
+  BTN_TR: r
+  BTN_TL2: zl
+  BTN_TR2: zr
+  BTN_MODE: heart
+  BTN_THUMBL: stick
+axes:
+  ABS_HAT0X:
+    binary:
+      left: [-1, -1]
+      right: [1, 1]
+  ABS_HAT0Y:
+    binary:
+      up: [-1, -1]
+      down: [1, 1]
+  ABS_X:
+    stick:
+      stick:
+        x:
+          min_value: 0
+          max_value: 255
+          default_value: 127
+  ABS_Y:
+    stick:
+      stick:
+        y:
+          min_value: 0
+          max_value: 255
+          default_value: 127
+  ABS_Z:
+    binary:
+      c_left: [0, 0]
+      c_right: [255, 255]
+  ABS_RZ:
+    binary:
+      c_up: [0, 0]
+      c_down: [255, 255]
+

@@ -80,7 +80,7 @@ class Translator(mister_viz_openvizsla.OpenVizslaTranslator):
 					[21, 'r1'],
 					[22, 'triangle'],
 					[23, 'circle'],
-					[24, 'cross/'],
+					[24, 'cross'],
 					[25, 'square'],
 				]:
 					pressures[key] = payload[idx]

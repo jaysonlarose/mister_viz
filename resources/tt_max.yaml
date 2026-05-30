@@ -1,0 +1,68 @@
+name: GuliKit TT Max
+vid: 0x045e
+pid: 0x028e
+svg: tt_max.svg
+primary: true
+has_rumble: true  
+buttons:
+  BTN_A: b
+  BTN_B: a
+  BTN_X: y
+  BTN_Y: x
+  BTN_MODE: home
+  BTN_SELECT: minus
+  BTN_START: plus
+  BTN_TL: l
+  BTN_TR: r
+  BTN_THUMBL: lstick
+  BTN_THUMBR: rstick
+axes:
+  ABS_HAT0X:
+    binary:
+      left: [-1, -1]
+      right: [1, 1]
+  ABS_HAT0Y:
+    binary:
+      up: [-1, -1]
+      down: [1, 1]
+  ABS_X:
+    stick:
+      lstick:
+        x:
+          min_value: -32768
+          max_value: 32767
+          default_value: 0
+  ABS_Y:
+    stick:
+      lstick:
+        y:
+          min_value: -32768
+          max_value: 32767
+          default_value: 0
+  ABS_RX:
+    stick:
+      rstick:
+        x:
+          min_value: -32768
+          max_value: 32767
+          default_value: 0
+  ABS_RY:
+    stick:
+      rstick:
+        y:
+          min_value: -32768
+          max_value: 32767
+          default_value: 0
+  ABS_Z:
+    analog:
+      mapped_to: zl
+      min_value: 0
+      max_value: 255
+      default_value: 0
+  ABS_RZ:
+    analog:
+      mapped_to: zr
+      min_value: 0
+      max_value: 255
+      default_value: 0
+
